@@ -1,4 +1,4 @@
-# Locate the Culkan Memory Allocator - VMA
+# Locate the Vulkan Memory Allocator - VMA
 #
 # This module defines the following variables:
 #
