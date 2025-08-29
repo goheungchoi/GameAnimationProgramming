@@ -7,7 +7,7 @@
 
 
 class WindowApp {
-	GLFWwindow* window{ nullptr };
+	GLFWwindow* mWindow{ nullptr };
 	std::unique_ptr<class VkRenderer> mRenderer{ nullptr };
 
 public:
@@ -21,5 +21,5 @@ private:
 	void handleMouseButtonEvents(int button, int action, int mods);
 	void handleMousePositionEvents(double xPos, double yPos);
 
-	void update(float deltaTime)
+	void update(float deltaTime);
 };

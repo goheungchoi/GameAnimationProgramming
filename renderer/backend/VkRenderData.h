@@ -1,0 +1,147 @@
+#pragma once
+
+#include <vector>
+#include <string>
+#include <cstdint>
+#include <unordered_map>
+
+#include <glm/glm.hpp>
+
+#include <vulkan/vulkna.h>
+#include <GLFW/glfw3.h>
+
+#include <VkBootstrap.h>
+#include <vk_mem_alloc.h>
+
+#include <assimp/material.h>
+
+struct VkVertex {
+	glm::vec3 position{};
+	glm::vec4 color{1.f};
+	glm::vec3 normal{};
+	glm::vec2 uv{};
+	glm::uvec4 boneNum{};
+	glm::vec4 boneWeights{};
+};
+
+struct VkMesh {
+	std::vector<VkVertex> vertices{};
+	std::vector<uint32_t> indices{};
+	std::unordered_map<aiTextureType, std::string> textures{};
+	bool usesPBRColors = false;
+};
+
+struct VkUploadMatrices {
+	glm::mat4 view{};
+	glm::mat4 proj{};
+};
+
+struct VkTextureData {
+	VkImage image = VK_NULL_HANDLE;
+	VkImageView view = VK_NULL_HANDLE;
+	VkSampler sampler = VK_NULL_HANDLE;
+	VmaAllocation alloc = VK_NULL_HANDLE;
+
+	VkDescriptorSet descSet = VK_NULL_HANDLE;
+};
+
+struct VkVertexBufferData {
+	VkDeviceSize size = 0;
+	void* data = nullptr;
+	VkBuffer buffer = VK_NULL_HANDLE;
+	VmaAllocation alloc = VK_NULL_HANDLE;
+	VkBuffer staging = VK_NULL_HANDLE;
+	VmaAllocation stagingAlloc = VK_NULL_HANDLE;
+};
+
+struct VkUniformBufferData {
+	VkDeviceSize size = 0;
+	VkBuffer buffer = VK_NULL_HANDLE;
+	VmaAllocation alloc = VK_NULL_HANDLE;
+
+	VkDescriptionSet descSet = VK_NULL_HANDLE;
+};
+
+struct VkShaderStorageBufferData {
+	VkDeviceSize size = 0;
+	VkBuffer buffer = VK_NULL_HANDLE;
+	VmaAllocation alloc = VK_NULL_HANDLE;
+
+	VkDescriptorSet descSet = VK_NULL_HANDLE;
+};
+
+struct VkPushConstants {
+	int pkModelStride;
+	int pkWorldPosMatIndexOffset;
+};
+
+struct VkRenderData {
+	GLFWwindow* rdWindow = nullptr;
+
+	int rdWidth = 0;
+	int rdHeight = 0;
+
+	unsigned int rdTriangleCount = 0;
+	unsigned int rdMatricesSize = 0;
+
+	int rdFOV = 60;
+
+	float rdFrameTime = 0.0f;
+	float rdMatrixGenerateTime = 0.0f;
+	float rdUploadToVBOTime = 0.0f;
+	float rdUploadToUBOTime = 0.0f;
+	float rdUIGenerateTime = 0.0f;
+	float rdUIDrawTime = 0.0f;
+
+	int rdMoveForward = 0;
+	int rdMoveRight = 0;
+	int rdMoveUp = 0;
+
+	float rdViewAzimuth = 330.0f;
+	float rdViewElevation = -20.0f;
+	glm::vec3 rdCameraWorldPosition = glm::vec3(2.0f, 5.0f, 7.0f);
+
+	/* Vulkan specific stuff */
+	VmaAllocator rdAllocator = nullptr;
+
+	vkb::Instance rdVkbInstance{};
+	vkb::PhysicalDevice rdVkbPhysicalDevice{};
+	vkb::Device rdVkbDevice{};
+	vkb::Swapchain rdVkbSwapchain{};
+
+	std::vector<VkImage> rdSwapchainImages{};
+	std::vector<VkImageView> rdSwapchainImageViews{};
+	std::vector<VkFramebuffer> rdFramebuffers{};
+
+	VkQueue rdGraphicsQueue = VK_NULL_HANDLE;
+	VkQueue rdPresentQueue = VK_NULL_HANDLE;
+
+	VkImage rdDepthImage = VK_NULL_HANDLE;
+	VkImageView rdDepthImageView = VK_NULL_HANDLE;
+	VkFormat rdDepthFormat = VK_FORMAT_UNDEFINED;
+	VmaAllocation rdDepthImageAlloc = VK_NULL_HANDLE;
+
+	VkRenderPass rdRenderpass = VK_NULL_HANDLE;
+
+	VkPipelineLayout rdAssimpPipelineLayout = VK_NULL_HANDLE;
+	VkPipelineLayout rdAssimpSkinningPipelineLayout = VK_NULL_HANDLE;
+
+	VkPipeline rdAssimpPipeline = VK_NULL_HANDLE;
+	VkPipeline rdAssimpSkinningPipeline = VK_NULL_HANDLE;
+
+	VkCommandPool rdCommandPool = VK_NULL_HANDLE;
+	VkCommandBuffer rdCommandBuffer = VK_NULL_HANDLE;
+
+	VkSemaphore rdPresentSemaphore = VK_NULL_HANDLE;
+	VkSemaphore rdRenderSemaphore = VK_NULL_HANDLE;
+	VkFence rdRenderFence = VK_NULL_HANDLE;
+
+	VkDescriptorSetLayout rdAssimpDescriptorLayout = VK_NULL_HANDLE;
+	VkDescriptorSetLayout rdAssimpTextureDescriptorLayout = VK_NULL_HANDLE;
+
+	VkDescriptorSet rdAssimpDescriptorSet = VK_NULL_HANDLE;
+	VkDescriptorSet rdAssimpSkinningDescriptorSet = VK_NULL_HANDLE;
+
+	VkDescriptorPool rdDescriptorPool = VK_NULL_HANDLE;
+	VkDescriptorPool rdImguiDescriptorPool = VK_NULL_HANDLE;
+};

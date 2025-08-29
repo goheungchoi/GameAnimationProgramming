@@ -1,6 +1,6 @@
 ﻿cmake_minimum_required(VERSION 3.19)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Use custom file to find libraries
@@ -164,14 +164,13 @@ if(WIN32 AND NOT MINGW)
   endif()
 endif()
 
-
-
 # Add source files.
 file(GLOB SOURCES
   Main.cpp
   window-app/*.cpp
   tools/*.cpp
-  vulkan/*.cpp
+  renderer/*.cpp
+	renderer/backend/*.cpp
   model/*.cpp
   ${imgui_SOURCE_DIR}/*.cpp
   # .cpp files for backends
@@ -184,7 +183,7 @@ file(GLOB SOURCES
 # Add the executable target.
 add_executable(${PROJECT_NAME} ${SOURCES})
 # Executable's include directories.
-target_include_directories(${PROJECT_NAME} PUBLIC window tools vulkan model)
+target_include_directories(${PROJECT_NAME} PUBLIC window-app tools renderer renderer/backend model)
 # non-standard include dirs
 target_include_directories(${PROJECT_NAME} PRIVATE ${imgui_SOURCE_DIR} ${imgui_SOURCE_DIR}/backends
   ${filedialog_SOURCE_DIR} ${stbi_SOURCE_DIR} ${vk_bootstrap_SOURCE_DIR}/src ${vma_SOURCE_DIR}/include)
