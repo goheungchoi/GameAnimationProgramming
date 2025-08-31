@@ -23,15 +23,6 @@
 #include "VkRenderData.h"
 
 class VkRenderer {
- public:
-  VkRenderer(GLFWwindow* window);
-
-  bool init(unsigned int width, unsigned int height);
-  bool setSize(unsigned int width, unsigned int height);
-
-  bool draw();
-
- private:
   VkRenderData mRenderData{};
   ModelAndInstanceData mModelInstData{};
 
@@ -41,5 +32,74 @@ class VkRenderer {
   Timer mUIGenerateTimer{};
   Timer mUIDrawTimer{};
 
+	Camera* mCam{};
+ public:
+  VkRenderer(GLFWwindow* window);
 
+  bool init(unsigned int width, unsigned int height);
+  bool setSize(unsigned int width, unsigned int height);
+
+	bool bindCamera(Camera* cam);
+
+  bool draw();
+
+  bool hasModel(std::string modelFileName);
+  std::shared_ptr<AssimpModel> getModel(std::string modelFileName);
+  bool addModel(std::string modelFileName);
+  void deleteModel(std::string modelFileName);
+
+  std::shared_ptr<AssimpInstance> addInstance(
+      std::shared_ptr<AssimpModel> model);
+  void addInstances(std::shared_ptr<AssimpModel> model, int numInstances);
+  void deleteInstance(std::shared_ptr<AssimpInstance> instance);
+  void cloneInstance(std::shared_ptr<AssimpInstance> instance);
+
+ private:
+  UserInterface mUserInterface{};
+  Camera mCamera{};
+
+  VkPushConstants mModelData{};
+  VkUniformBufferData mPerspectiveViewMatrixUBO{};
+
+  /* For non-animated models */
+  std::vector<glm::mat4> mWorldPosMatrices{};
+  VkShaderStorageBufferData mWorldPosBuffer{};
+
+  /* For animated models */
+  std::vector<glm::mat4> mModelBoneMatrices{};
+  VkShaderStorageBufferData mBoneMatrixBuffer{};
+  
+  /* Identity matrices */
+  VkUploadMatrices mMatrices{glm::mat4(1.0f), glm::mat4(1.0f)};
+
+  /* Vulkan specific code */
+  VkSurfaceKHR mSurface = VK_NULL_HANDLE;
+  VmaAllocator rdAllocator = nullptr;
+
+  VkDeviceSize mMinSSBOOffsetAlignment = 0;
+
+  bool deviceInit();
+  bool getQueues();
+  bool initVma();
+  bool createDescriptorPool();
+  bool createDescriptorLayouts();
+  bool createDescriptorSets();
+  bool updateDescriptorSets();
+  bool createDepthBuffer();
+  bool createMatrixUBO();
+  bool createSSBOs();
+  bool createSwapchain();
+  bool createRenderPass();
+  bool createPipelineLayouts();
+  bool createPipelines();
+  bool createFramebuffer();
+  bool createCommandPool();
+  bool createCommandBuffer();
+  bool createSyncObjects();
+
+  bool initUserInterface();
+
+  bool recreateSwapchain();
+
+	void updateTriangleCount();
 };

@@ -6,12 +6,12 @@
 #include <glm/glm.hpp>
 
 struct InstanceSettings {
-  glm::vec3 inst_WorldPosition = glm::vec3(0.0f);
-  glm::vec3 inst_WorldRotation = glm::vec3(0.0f);
-  float inst_Scale = 1.0f;
-  bool inst_SwapYZAxis = false;
+  glm::vec3 worldPosition = glm::vec3(0.0f);
+  glm::vec3 worldRotation = glm::vec3(0.0f);
+  float scale = 1.0f;
+  bool swapYZAxis = false;
 
-  unsigned int inst_AnimClipNr = 0;
-  float inst_AnimPlayTimePos = 0.0f;
-  float inst_AnimSpeedFactor = 1.0f;
+  unsigned int animClipNr = 0;
+  float animPlayTimePos = 0.0f;
+  float animSpeedFactor = 1.0f;
 };
