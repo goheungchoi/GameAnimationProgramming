@@ -10,9 +10,9 @@ AssimpInstance::AssimpInstance(std::shared_ptr<AssimpModel> model, glm::vec3 pos
     Logger::log(1, "%s error: invalid model given\n", __FUNCTION__);
     return;
   }
-  mInstanceSettings.isWorldPosition = position;
-  mInstanceSettings.isWorldRotation = rotation;
-  mInstanceSettings.isScale = modelScale;
+  mInstanceSettings.worldPosition = position;
+  mInstanceSettings.worldRotation = rotation;
+  mInstanceSettings.scale = modelScale;
 
   /* we need one 4x4 matrix for every bone */
   mBoneMatrices.resize(mAssimpModel->getBoneList().size());
@@ -27,36 +27,36 @@ void AssimpInstance::updateModelRootMatrix() {
     return;
   }
 
-  mLocalScaleMatrix = glm::scale(glm::mat4(1.0f), glm::vec3(mInstanceSettings.isScale));
+  mLocalScaleMatrix = glm::scale(glm::mat4(1.0f), glm::vec3(mInstanceSettings.scale));
 
-  if (mInstanceSettings.isSwapYZAxis) {
+  if (mInstanceSettings.swapYZAxis) {
     glm::mat4 flipMatrix = glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     mLocalSwapAxisMatrix = glm::rotate(flipMatrix, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
   } else {
     mLocalSwapAxisMatrix = glm::mat4(1.0f);
   }
 
-  mLocalRotationMatrix = glm::mat4_cast(glm::quat(glm::radians(mInstanceSettings.isWorldRotation)));
+  mLocalRotationMatrix = glm::mat4_cast(glm::quat(glm::radians(mInstanceSettings.worldRotation)));
 
-  mLocalTranslationMatrix = glm::translate(glm::mat4(1.0f), mInstanceSettings.isWorldPosition);
+  mLocalTranslationMatrix = glm::translate(glm::mat4(1.0f), mInstanceSettings.worldPosition);
 
   mLocalTransformMatrix = mLocalTranslationMatrix * mLocalRotationMatrix * mLocalSwapAxisMatrix * mLocalScaleMatrix;
 }
 
 void AssimpInstance::updateAnimation(float deltaTime) {
-  mInstanceSettings.isAnimPlayTimePos += deltaTime * mAssimpModel->getAnimClips().at(mInstanceSettings.isAnimClipNr)->getClipTicksPerSecond() * mInstanceSettings.isAnimSpeedFactor;
-  mInstanceSettings.isAnimPlayTimePos = std::fmod(mInstanceSettings.isAnimPlayTimePos, mAssimpModel->getAnimClips().at(mInstanceSettings.isAnimClipNr)->getClipDuration());
+  mInstanceSettings.animPlayTimePos += deltaTime * mAssimpModel->getAnimClips().at(mInstanceSettings.animClipNr)->getClipTicksPerSecond() * mInstanceSettings.animSpeedFactor;
+  mInstanceSettings.animPlayTimePos = std::fmod(mInstanceSettings.animPlayTimePos, mAssimpModel->getAnimClips().at(mInstanceSettings.animClipNr)->getClipDuration());
 
-  std::vector<std::shared_ptr<AssimpAnimChannel>> animChannels = mAssimpModel->getAnimClips().at(mInstanceSettings.isAnimClipNr)->getChannels();
+  std::vector<std::shared_ptr<AssimpAnimChannel>> animChannels = mAssimpModel->getAnimClips().at(mInstanceSettings.animClipNr)->getChannels();
 
   /* animate clip via channels */
   for (const auto& channel : animChannels) {
     std::string nodeNameToAnimate = channel->getTargetNodeName();
     std::shared_ptr<AssimpNode> node = mAssimpModel->getNodeMap().at(nodeNameToAnimate);
 
-    node->setRotation(channel->getRotation(mInstanceSettings.isAnimPlayTimePos));
-    node->setScaling(channel->getScaling(mInstanceSettings.isAnimPlayTimePos));
-    node->setTranslation(channel->getTranslation(mInstanceSettings.isAnimPlayTimePos));
+    node->setRotation(channel->getRotation(mInstanceSettings.animPlayTimePos));
+    node->setScaling(channel->getScaling(mInstanceSettings.animPlayTimePos));
+    node->setTranslation(channel->getTranslation(mInstanceSettings.animPlayTimePos));
   }
 
   /* set root node transform matrix, enabling instance movement */
@@ -79,7 +79,7 @@ std::shared_ptr<AssimpModel> AssimpInstance::getModel() {
 }
 
 glm::vec3 AssimpInstance::getWorldPosition() {
-  return mInstanceSettings.isWorldPosition;
+  return mInstanceSettings.worldPosition;
 }
 
 glm::mat4 AssimpInstance::getWorldTransformMatrix() {
@@ -87,39 +87,39 @@ glm::mat4 AssimpInstance::getWorldTransformMatrix() {
 }
 
 void AssimpInstance::setTranslation(glm::vec3 position) {
-  mInstanceSettings.isWorldPosition = position;
+  mInstanceSettings.worldPosition = position;
   updateModelRootMatrix();
 }
 
 void AssimpInstance::setRotation(glm::vec3 rotation) {
-  mInstanceSettings.isWorldRotation = rotation;
+  mInstanceSettings.worldRotation = rotation;
   updateModelRootMatrix();
 }
 
 void AssimpInstance::setScale(float scale) {
-  mInstanceSettings.isScale = scale;
+  mInstanceSettings.scale = scale;
   updateModelRootMatrix();
 }
 
 void AssimpInstance::setSwapYZAxis(bool value) {
-  mInstanceSettings.isSwapYZAxis = value;
+  mInstanceSettings.swapYZAxis = value;
   updateModelRootMatrix();
 }
 
 glm::vec3 AssimpInstance::getRotation() {
-  return mInstanceSettings.isWorldRotation;
+  return mInstanceSettings.worldRotation;
 }
 
 glm::vec3 AssimpInstance::getTranslation() {
-  return mInstanceSettings.isWorldPosition;
+  return mInstanceSettings.worldPosition;
 }
 
 float AssimpInstance::getScale() {
-  return mInstanceSettings.isScale;
+  return mInstanceSettings.scale;
 }
 
 bool AssimpInstance::getSwapYZAxis() {
-  return mInstanceSettings.isSwapYZAxis;
+  return mInstanceSettings.swapYZAxis;
 }
 
 void AssimpInstance::setInstanceSettings(InstanceSettings settings) {

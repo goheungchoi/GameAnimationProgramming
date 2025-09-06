@@ -55,9 +55,9 @@ bool AssimpMesh::processMesh(VkRenderData &renderData, aiMesh* mesh, const aiSce
             if (!texName.empty() && texName.find("*") != 0) {
               VkTextureData newTex{};
               std::string texNameWithPath = assetDirectory + '/' + texName;
-              if (!Texture::loadTexture(renderData, newTex, texNameWithPath)) {
+              if (!Texture::loadTexture(renderData, &newTex, texNameWithPath)) {
                 Logger::log(1, "%s error: could not load texture file '%s', skipping\n", __FUNCTION__, texNameWithPath.c_str());
-                Texture::cleanup(renderData, newTex);
+                Texture::cleanup(renderData, &newTex);
                 continue;
               }
 
@@ -134,8 +134,8 @@ bool AssimpMesh::processMesh(VkRenderData &renderData, aiMesh* mesh, const aiSce
         unsigned int vertexId = mesh->mBones[boneId]->mWeights[weight].mVertexId;
         float vertexWeight = mesh->mBones[boneId]->mWeights[weight].mWeight;
 
-        glm::uvec4 currentIds = mMesh.vertices.at(vertexId).boneNumber;
-        glm::vec4 currentWeights = mMesh.vertices.at(vertexId).boneWeight;
+        glm::uvec4 currentIds = mMesh.vertices.at(vertexId).boneNum;
+        glm::vec4 currentWeights = mMesh.vertices.at(vertexId).boneWeights;
 
         /* insert weight and bone id into first free slot (weight => 0.0f) */
         for (unsigned int i = 0; i < 4; ++i) {
@@ -147,8 +147,8 @@ bool AssimpMesh::processMesh(VkRenderData &renderData, aiMesh* mesh, const aiSce
             break;
           }
         }
-        mMesh.vertices.at(vertexId).boneNumber = currentIds;
-        mMesh.vertices.at(vertexId).boneWeight = currentWeights;
+        mMesh.vertices.at(vertexId).boneNum = currentIds;
+        mMesh.vertices.at(vertexId).boneWeights = currentWeights;
 
       }
     }

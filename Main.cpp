@@ -1,12 +1,18 @@
-﻿// GameAnimationProgramming.cpp : Defines the entry point for the application.
-//
+﻿#include <memory>
+#include <string>
 
-#include "GameAnimationProgramming.h"
+#include "Logger.h"
+#include "WindowApp.h"
 
-using namespace std;
+int main(int argc, char *argv[]) {
+  WindowApp app{};
 
-int main()
-{
-	cout << "Hello CMake." << endl;
-	return 0;
+  if (!app.init(1280, 720, "Vulkan Renderer - Open Asset Import Library")) {
+    Logger::log(1, "%s error: Window init error\n", __FUNCTION__);
+    return -1;
+  }
+  app.run();
+  app.cleanup();
+
+  return 0;
 }

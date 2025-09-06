@@ -54,6 +54,14 @@ struct VkVertexBufferData {
 	VmaAllocation stagingAlloc = VK_NULL_HANDLE;
 };
 
+struct VkIndexBufferData {
+  VkDeviceSize size = 0;
+  VkBuffer buffer = VK_NULL_HANDLE;
+  VmaAllocation alloc = nullptr;
+  VkBuffer staging = VK_NULL_HANDLE;
+  VmaAllocation stagingAlloc = nullptr;
+};
+
 struct VkUniformBufferData {
 	VkDeviceSize size = 0;
 	VkBuffer buffer = VK_NULL_HANDLE;
@@ -81,13 +89,14 @@ struct VkRenderData {
 	int rdWidth = 0;
 	int rdHeight = 0;
 
-	unsigned int rdTriangleCount = 0;
-	unsigned int rdMatricesSize = 0;
+	size_t rdTriangleCount = 0;
+	size_t rdMatricesSize = 0;
 
 	int rdFOV = 60;
 
 	float rdFrameTime = 0.0f;
-	float rdMatrixGenerateTime = 0.0f;
+	float rdUpdateAnimationTime = 0.0f;
+	float rdUploadToSSBOTime = 0.0f;
 	float rdUploadToVBOTime = 0.0f;
 	float rdUploadToUBOTime = 0.0f;
 	float rdUIGenerateTime = 0.0f;

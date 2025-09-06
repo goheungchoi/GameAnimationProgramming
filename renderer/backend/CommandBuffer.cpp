@@ -70,7 +70,7 @@ VkCommandBuffer CommandBuffer::createTransientBuffer(const VkRenderData& renderD
 	Logger::log(2, "%s: creating a single shot command buffer\n", __FUNCTION__);
 	VkCommandBuffer cmd;
 
-	if (!init(renderData, cmd)) {
+	if (!init(renderData, &cmd)) {
 		Logger::log(1, "%s error: could not create command buffer\n", __FUNCTION__);
 		return VK_NULL_HANDLE;
 	}
@@ -95,7 +95,7 @@ VkCommandBuffer CommandBuffer::createTransientBuffer(const VkRenderData& renderD
 	return cmd;
 }
 
-bool CommandBuffer::submitTransientBuffer(const VkRenderData& renderData, VkCommandBuffer& cmd)
+bool CommandBuffer::submitTransientBuffer(const VkRenderData& renderData, VkCommandBuffer cmd)
 {
 	Logger::log(2, "%s: submitting single shot command buffer\n", __FUNCTION__);
 
@@ -128,7 +128,7 @@ bool CommandBuffer::submitTransientBuffer(const VkRenderData& renderData, VkComm
 		return false;
 	}
 
-	result = vkQueueSubmit(queue, 1, &submitInfo, bufferFence);
+	result = vkQueueSubmit(renderData.rdGraphicsQueue, 1, &submitInfo, bufferFence);
 	if (result != VK_SUCCESS) {
 		Logger::log(1, "%s error: failed to submit buffer copy command buffer (error: %i)\n", __FUNCTION__, result);
 		return false;
@@ -141,7 +141,7 @@ bool CommandBuffer::submitTransientBuffer(const VkRenderData& renderData, VkComm
 	}
 
 	vkDestroyFence(renderData.rdVkbDevice.device, bufferFence, nullptr);
-	cleanup(renderData, cmd);
+	cleanup(renderData, &cmd);
 
 	Logger::log(2, "%s: single shot command buffer successfully submitted\n", __FUNCTION__);
 	return true;

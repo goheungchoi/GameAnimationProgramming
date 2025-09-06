@@ -9,17 +9,17 @@
 
 class VertexBuffer {
  public:
-  static bool init(VkRenderData &renderData,
-                   VkVertexBufferData &vertexBufferData,
-                   unsigned int bufferSize);
+  static bool init(const VkRenderData& renderData,
+                   VkVertexBufferData* vertexBufferData,
+                   VkDeviceSize bufferSize);
 
-  static bool uploadData(VkRenderData &renderData,
-                         VkVertexBufferData &vertexBufferData,
-                         VkMesh vertexData);
-  static bool uploadData(VkRenderData &renderData,
-                         VkVertexBufferData &vertexBufferData,
-                         std::vector<glm::vec3> vetrexData);
+  static bool uploadData(const VkRenderData& renderData,
+                         VkVertexBufferData* vertexBufferData,
+                         const VkMesh& vertexData);
+  static bool uploadData(const VkRenderData& renderData,
+                         VkVertexBufferData* vertexBufferData,
+                         const std::vector<glm::vec3>& vetrexData);
 
-  static void cleanup(VkRenderData &renderData,
-                      VkVertexBufferData &vertexBufferData);
+  static void cleanup(const VkRenderData& renderData,
+                      VkVertexBufferData* vertexBufferData);
 };

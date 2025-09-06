@@ -3,6 +3,8 @@
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+project(Main)
+
 # Use custom file to find libraries
 if (WIN32)
 	list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
@@ -23,7 +25,9 @@ endif(CCACHE_FOUND)
 include(FetchContent)
 set(FETCHCONTENT_QUIET OFF)
 
-# Get ImGui, no build needed (only the files)
+include(cmake)
+
+# get ImGui, no build needed (only the files)
 FetchContent_Declare(
   imgui
   GIT_REPOSITORY https://github.com/ocornut/imgui
@@ -39,7 +43,7 @@ if(NOT imgui_POPULATED)
   add_subdirectory(${imgui_SOURCE_DIR} EXCLUDE_FROM_ALL)
 endif()
 
-# Get ImGuiFileDialog, also files only
+# get ImGuiFileDialog, also files only
 FetchContent_Declare(
   filedialog
   GIT_REPOSITORY https://github.com/aiekick/ImGuiFileDialog
@@ -47,7 +51,7 @@ FetchContent_Declare(
   GIT_SHALLOW 1
 )
 
-# Ugly hack to have ImGui available when the file dialog source getch fetched
+# ugly hack to have ImGui available when the file dialog source getch fetched
 get_property(current_compile_options DIRECTORY PROPERTY COMPILE_OPTIONS)
 set_property(DIRECTORY PROPERTY COMPILE_OPTIONS -I ${imgui_SOURCE_DIR})
 FetchContent_MakeAvailable(filedialog)

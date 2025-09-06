@@ -6,14 +6,15 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <functional>
+#include <string>
 
 // forward declaration
 class AssimpModel;
 class AssimpInstance;
 
-using modelCheckCallback = std::function<bool(std::string)>;
-using modelAddCallback = std::function<bool(std::string)>;
-using modelDeleteCallback = std::function<void(std::string)>;
+using modelCheckCallback = std::function<bool(const std::string&)>;
+using modelAddCallback = std::function<bool(const std::string&)>;
+using modelDeleteCallback = std::function<void(const std::string&)>;
 
 using instanceAddCallback = std::function<std::shared_ptr<AssimpInstance>(std::shared_ptr<AssimpModel>)>;
 using instanceAddManyCallback = std::function<void(std::shared_ptr<AssimpModel>, int)>;
@@ -23,11 +24,6 @@ using instanceCloneCallback = std::function<void(std::shared_ptr<AssimpInstance>
 struct ModelAndInstanceData {
   std::vector<std::shared_ptr<AssimpModel>> miModelList{};
   int miSelectedModel = 0;
-
-  /* For non-animated models */
-  std::vector<glm::mat4> mWorldPosMatrices{};
-  /* For animated models */
-  std::vector<glm::mat4> mModelBoneMatrices{};
 
   std::vector<std::shared_ptr<AssimpInstance>> miAssimpInstances{};
   std::unordered_map<std::string, std::vector<std::shared_ptr<AssimpInstance>>>

@@ -5,11 +5,13 @@
 #include "VkRenderData.h"
 
 class IndexBuffer {
-public:
-	static bool init(const VkRenderData& renderData, VkIndexBufferData* bufferData,
-		size_t bufferSize);
-	static bool uploadData(const VkRenderData& renderData, VkIndexBufferData& bufferData,
-		VkMesh vertexData);
+ public:
+  static bool init(const VkRenderData& renderData,
+                   VkIndexBufferData* bufferData, size_t bufferSize);
+  static bool uploadData(const VkRenderData& renderData,
+                         VkIndexBufferData* bufferData,
+                         const VkMesh& vertexData);
 
-	static void cleanup(const VkRenderData& renderData, VkIndexBufferData* bufferData);
+  static void cleanup(const VkRenderData& renderData,
+                      VkIndexBufferData* bufferData);
 };

@@ -157,8 +157,8 @@ bool VkRenderer::setSize(unsigned int width, unsigned int height) {
 	return true;
 }
 
-bool VkRenderer::bindCamera(const Camera* cam) {
-	mCam = cam;
+void VkRenderer::bindCamera(std::shared_ptr<Camera> camera) {
+	mCamera = camera;
 }
 
 void VkRenderer::hideMouse(bool bHide) {
@@ -200,70 +200,64 @@ bool VkRenderer::draw() {
     return false;
   }
 
-  /* Matrix generation */
-  mMatrixGenerateTimer.start();
+  /* Update view proj matrix */
   mMatrices.proj = glm::perspective(
       glm::radians(static_cast<float>(mRenderData.rdFOV)),
       static_cast<float>(mRenderData.rdVkbSwapchain.extent.width) /
           static_cast<float>(mRenderData.rdVkbSwapchain.extent.height),
       0.1f, 500.0f);
-  mMatrices.view = mCamera.getViewMatrix(mRenderData);
-  mRenderData.rdMatrixGenerateTime += mMatrixGenerateTimer.stop();
+  mMatrices.view = mCamera->getViewMatrix();
 
 	/* Upload UBO */
 	mUploadToUBOTimer.start();
-  UniformBuffer::uploadData(mRenderData, mPerspectiveViewMatrixUBO, mMatrices);
+  UniformBuffer::uploadData(mRenderData, &mPerspectiveViewMatrixUBO, mMatrices);
   mRenderData.rdUploadToUBOTime += mUploadToUBOTimer.stop();
 
-	// TODO: Move it to update().
 	/* Update model matrix SSBO */
-	//mWorldPosMatrices.clear();
- // mModelBoneMatrices.clear();
- // for (const auto& modelType : mModelInstData.miAssimpInstancesPerModel) {
- //   size_t numberOfInstances = modelType.second.size();
- //   if (numberOfInstances > 0) {
- //     std::shared_ptr<AssimpModel> model = modelType.second.at(0)->getModel();
+  mWorldPosMatrices.clear();
+  mModelBoneMatrices.clear();
+  for (const auto& [_, instances] : mModelInstData.miAssimpInstancesPerModel) {
+    size_t numberOfInstances = instances.size();
+    if (numberOfInstances > 0) {
+      std::shared_ptr<AssimpModel> model = instances.front()->getModel();
 
- //     /* animated models */
- //     if (model->hasAnimations() &&
- //         !modelType.second.at(0)->getBoneMatrices().empty()) {
- //       mMatrixGenerateTimer.start();
- //       for (unsigned int i = 0; i < numberOfInstances; ++i) {
- //         modelType.second.at(i)->updateAnimation(deltaTime);
- //         std::vector<glm::mat4> instanceBoneMatrices =
- //             modelType.second.at(i)->getBoneMatrices();
- //         mModelBoneMatrices.insert(mModelBoneMatrices.end(),
- //                                   instanceBoneMatrices.begin(),
- //                                   instanceBoneMatrices.end());
- //       }
+      /* animated models */
+      if (model->hasAnimations() &&
+          !instances.front()->getBoneMatrices().empty()) {
+        mUploadToSSBOTimer.start();
+        for (unsigned int i = 0; i < numberOfInstances; ++i) {
+          const std::vector<glm::mat4>& instanceBoneMatrices =
+              instances.at(i)->getBoneMatrices();
+          mModelBoneMatrices.insert(mModelBoneMatrices.end(),
+                                    instanceBoneMatrices.begin(),
+                                    instanceBoneMatrices.end());
+        }
+        mRenderData.rdUploadToSSBOTime += mUploadToSSBOTimer.stop();
+      } else {
+        /* non-animated models */
+        mUploadToSSBOTimer.start();
+        for (const auto& instance : instances) {
+          mWorldPosMatrices.emplace_back(instance->getWorldTransformMatrix());
+        }
+        mRenderData.rdUploadToSSBOTime += mUploadToSSBOTimer.stop();
+      }
+    }
+  }
 
- //       mRenderData.rdMatrixGenerateTime += mMatrixGenerateTimer.stop();
- //     } else {
- //       /* non-animated models */
- //       mMatrixGenerateTimer.start();
-
- //       for (const auto& instance : modelType.second) {
- //         mWorldPosMatrices.emplace_back(instance->getWorldTransformMatrix());
- //       }
-
- //       mRenderData.rdMatrixGenerateTime += mMatrixGenerateTimer.stop();
- //     }
- //   }
- // }
-	/*mRenderData.rdMatricesSize = mModelBoneMatrices.size() * sizeof(glm::mat4) +
-                               mWorldPosMatrices.size() * sizeof(glm::mat4);*/
+  mRenderData.rdMatricesSize = mModelBoneMatrices.size() * sizeof(glm::mat4) +
+                               mWorldPosMatrices.size() * sizeof(glm::mat4);
 
 	/* we need to update descriptors after the upload if buffer size changed */
   bool bufferResized = false;
-  mUploadToUBOTimer.start();
+  mUploadToSSBOTimer.start();
   bufferResized = ShaderStorageBuffer::uploadSSBOData(
-      mRenderData, &mBoneMatrixBuffer, mModelInstData.mModelBoneMatrices);
+      mRenderData, &mBoneMatrixBuffer, mModelBoneMatrices);
   bufferResized |= ShaderStorageBuffer::uploadSSBOData(
-      mRenderData, &mWorldPosBuffer, mModelInstData.mWorldPosMatrices);
+      mRenderData, &mWorldPosBuffer, mWorldPosMatrices);
   if (bufferResized) {
     updateDescriptorSets();
   }
-  mRenderData.rdUploadToUBOTime += mUploadToUBOTimer.stop();
+  mRenderData.rdUploadToSSBOTime += mUploadToSSBOTimer.stop();
 
 	/* Command buffer setting */
 	if (!CommandBuffer::reset(mRenderData.rdCommandBuffer)) {
@@ -599,6 +593,25 @@ void VkRenderer::cloneInstance(std::shared_ptr<AssimpInstance> instance) {
   updateTriangleCount();
 }
 
+void VkRenderer::updateAnimations(float deltaTime) {
+  for (const auto& [_, instances] : mModelInstData.miAssimpInstancesPerModel) {
+    size_t numberOfInstances = instances.size();
+    if (numberOfInstances > 0) {
+      std::shared_ptr<AssimpModel> model = instances.front()->getModel();
+
+      /* animated models */
+      if (model->hasAnimations() &&
+          !instances.front()->getBoneMatrices().empty()) {
+        mUpdateAnimationTimer.start();
+        for (unsigned int i = 0; i < numberOfInstances; ++i) {
+          instances.at(i)->updateAnimation(deltaTime);
+        }
+        mRenderData.rdUpdateAnimationTime += mUpdateAnimationTimer.stop();
+      }
+    }
+  }
+}
+
 void VkRenderer::cleanup() {
   VkResult result = vkDeviceWaitIdle(mRenderData.rdVkbDevice.device);
   if (result != VK_SUCCESS) {
@@ -632,7 +645,7 @@ void VkRenderer::cleanup() {
                           mRenderData.rdAssimpSkinningPipelineLayout);
   Renderpass::cleanup(&mRenderData);
 
-  UniformBuffer::cleanup(mRenderData, mPerspectiveViewMatrixUBO);
+  UniformBuffer::cleanup(mRenderData, &mPerspectiveViewMatrixUBO);
   ShaderStorageBuffer::cleanup(mRenderData, &mBoneMatrixBuffer);
   ShaderStorageBuffer::cleanup(mRenderData, &mWorldPosBuffer);
 
@@ -1071,7 +1084,7 @@ bool VkRenderer::createDepthBuffer() {
 }
 
 bool VkRenderer::createMatrixUBO() {
-  if (!UniformBuffer::init(mRenderData, mPerspectiveViewMatrixUBO)) {
+  if (!UniformBuffer::init(mRenderData, &mPerspectiveViewMatrixUBO)) {
     Logger::log(1, "%s error: could not create matrix uniform buffers\n",
                 __FUNCTION__);
     return false;

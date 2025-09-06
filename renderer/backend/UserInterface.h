@@ -28,8 +28,8 @@ class UserInterface {
   std::vector<float> mModelUploadValues{};
   int mNumModelUploadValues = 90;
 
-  std::vector<float> mMatrixGenerationValues{};
-  int mNumMatrixGenerationValues = 90;
+  std::vector<float> mUpdateAnimationValues{};
+  int mNumUpdateAnimationValues = 90;
 
   std::vector<float> mMatrixUploadValues{};
   int mNumMatrixUploadValues = 90;
@@ -46,7 +46,7 @@ class UserInterface {
   int mFpsOffset = 0;
   int mFrameTimeOffset = 0;
   int mModelUploadOffset = 0;
-  int mMatrixGenOffset = 0;
+  int mUpdateAnimOffset = 0;
   int mMatrixUploadOffset = 0;
   int mUiGenOffset = 0;
   int mUiDrawOffset = 0;

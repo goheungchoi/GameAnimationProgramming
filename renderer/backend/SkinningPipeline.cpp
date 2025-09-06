@@ -75,14 +75,14 @@ bool SkinningPipeline::init(const VkRenderData& renderData,
   jointsAttribute.location = 4;
   jointsAttribute.format = VK_FORMAT_R32G32B32A32_UINT;
   jointsAttribute.offset =
-      static_cast<uint32_t>(offsetof(VkVertex, boneNumber));
+      static_cast<uint32_t>(offsetof(VkVertex, boneNum));
 
   VkVertexInputAttributeDescription weightAttribute{};
   weightAttribute.binding = 0;
   weightAttribute.location = 5;
   weightAttribute.format = VK_FORMAT_R32G32B32A32_SFLOAT;
   weightAttribute.offset =
-      static_cast<uint32_t>(offsetof(VkVertex, boneWeight));
+      static_cast<uint32_t>(offsetof(VkVertex, boneWeights));
 
   std::vector<VkVertexInputAttributeDescription> attributes{};
   attributes.emplace_back(positionAttribute);

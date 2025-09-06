@@ -82,7 +82,7 @@ bool UserInterface::init(VkRenderData& renderData) {
   mFPSValues.resize(mNumFPSValues);
   mFrameTimeValues.resize(mNumFrameTimeValues);
   mModelUploadValues.resize(mNumModelUploadValues);
-  mMatrixGenerationValues.resize(mNumMatrixGenerationValues);
+  mUpdateAnimationValues.resize(mNumUpdateAnimationValues);
   mMatrixUploadValues.resize(mNumMatrixUploadValues);
   mUiGenValues.resize(mNumUiGenValues);
   mUiDrawValues.resize(mNumUiDrawValues);
@@ -143,11 +143,13 @@ void UserInterface::createFrame(VkRenderData& renderData,
     mModelUploadValues.at(mModelUploadOffset) = renderData.rdUploadToVBOTime;
     mModelUploadOffset = ++mModelUploadOffset % mNumModelUploadValues;
 
-    mMatrixGenerationValues.at(mMatrixGenOffset) =
-        renderData.rdMatrixGenerateTime;
-    mMatrixGenOffset = ++mMatrixGenOffset % mNumMatrixGenerationValues;
+    mUpdateAnimationValues.at(mUpdateAnimOffset) =
+        renderData.rdUpdateAnimationTime;
+    mUpdateAnimOffset = ++mUpdateAnimOffset % mNumUpdateAnimationValues;
 
-    mMatrixUploadValues.at(mMatrixUploadOffset) = renderData.rdUploadToUBOTime;
+		float totalMatrixUploadTime =
+        renderData.rdUploadToSSBOTime + renderData.rdUploadToUBOTime;
+    mMatrixUploadValues.at(mMatrixUploadOffset) = totalMatrixUploadTime;
     mMatrixUploadOffset = ++mMatrixUploadOffset % mNumMatrixUploadValues;
 
     mUiGenValues.at(mUiGenOffset) = renderData.rdUIGenerateTime;
@@ -220,7 +222,7 @@ void UserInterface::createFrame(VkRenderData& renderData,
       for (const auto value : mFrameTimeValues) {
         averageFrameTime += value;
       }
-      averageFrameTime /= static_cast<float>(mNumMatrixGenerationValues);
+      averageFrameTime /= static_cast<float>(mNumUpdateAnimationValues);
       std::string frameTimeOverlay =
           "now:     " + std::to_string(renderData.rdFrameTime) +
           " ms\n30s avg: " + std::to_string(averageFrameTime) + " ms";
@@ -257,31 +259,35 @@ void UserInterface::createFrame(VkRenderData& renderData,
       ImGui::EndTooltip();
     }
 
-    ImGui::Text("Matrix Generation Time: %10.4f ms",
-                renderData.rdMatrixGenerateTime);
+    ImGui::Text("Update Animation Time: %10.4f ms",
+                renderData.rdUpdateAnimationTime);
 
     if (ImGui::IsItemHovered()) {
       ImGui::BeginTooltip();
       float averageMatGen = 0.0f;
-      for (const auto value : mMatrixGenerationValues) {
+      for (const auto value : mUpdateAnimationValues) {
         averageMatGen += value;
       }
-      averageMatGen /= static_cast<float>(mNumMatrixGenerationValues);
-      std::string matrixGenOverlay =
-          "now:     " + std::to_string(renderData.rdMatrixGenerateTime) +
+      averageMatGen /= static_cast<float>(mNumUpdateAnimationValues);
+      std::string updateAnimOverlay =
+          "now:     " + std::to_string(renderData.rdUpdateAnimationTime) +
           " ms\n30s avg: " + std::to_string(averageMatGen) + " ms";
       ImGui::AlignTextToFramePadding();
-      ImGui::Text("Matrix Generation");
+      ImGui::Text("Update Animation");
       ImGui::SameLine();
-      ImGui::PlotLines("##MatrixGenTimes", mMatrixGenerationValues.data(),
-                       mMatrixGenerationValues.size(), mMatrixGenOffset,
-                       matrixGenOverlay.c_str(), 0.0f,
+      ImGui::PlotLines("##UpdateAnimTimes", mUpdateAnimationValues.data(),
+                       mUpdateAnimationValues.size(), mUpdateAnimOffset,
+                       updateAnimOverlay.c_str(), 0.0f,
                        std::numeric_limits<float>::max(), ImVec2(0, 80));
       ImGui::EndTooltip();
     }
 
-    ImGui::Text("Matrix Upload Time:     %10.4f ms",
-                renderData.rdUploadToUBOTime);
+		float totalMatrixUploadTime =
+        renderData.rdUploadToUBOTime +
+        renderData.rdUploadToSSBOTime;
+
+		ImGui::Text("Matrix Upload Time:     %10.4f ms",
+                            totalMatrixUploadTime);
 
     if (ImGui::IsItemHovered()) {
       ImGui::BeginTooltip();
@@ -291,10 +297,10 @@ void UserInterface::createFrame(VkRenderData& renderData,
       }
       averageMatrixUpload /= static_cast<float>(mNumMatrixUploadValues);
       std::string matrixUploadOverlay =
-          "now:     " + std::to_string(renderData.rdUploadToUBOTime) +
+          "now:     " + std::to_string(totalMatrixUploadTime) +
           " ms\n30s avg: " + std::to_string(averageMatrixUpload) + " ms";
       ImGui::AlignTextToFramePadding();
-      ImGui::Text("UBO Upload");
+      ImGui::Text("Matrix Upload");
       ImGui::SameLine();
       ImGui::PlotLines("##MatrixUploadTimes", mMatrixUploadValues.data(),
                        mMatrixUploadValues.size(), mMatrixUploadOffset,
@@ -348,7 +354,7 @@ void UserInterface::createFrame(VkRenderData& renderData,
     }
   }
 
-  if (ImGui::CollapsingHeader("Camera")) {
+  /*if (ImGui::CollapsingHeader("Camera")) {
     ImGui::Text("Camera Position: %s",
                 glm::to_string(renderData.rdCameraWorldPosition).c_str());
     ImGui::Text("View Azimuth:    %6.1f", renderData.rdViewAzimuth);
@@ -358,7 +364,7 @@ void UserInterface::createFrame(VkRenderData& renderData,
     ImGui::Text("Field of View");
     ImGui::SameLine();
     ImGui::SliderInt("##FOV", &renderData.rdFieldOfView, 40, 150, "%d", flags);
-  }
+  }*/
 
   if (ImGui::CollapsingHeader("Models")) {
     /* state is changed during model deletion, so save it first */
@@ -633,24 +639,24 @@ void UserInterface::createFrame(VkRenderData& renderData,
     ImGui::AlignTextToFramePadding();
     ImGui::Text("Swap Y and Z axes:     ");
     ImGui::SameLine();
-    ImGui::Checkbox("##ModelAxisSwap", &settings.isSwapYZAxis);
+    ImGui::Checkbox("##ModelAxisSwap", &settings.swapYZAxis);
 
     ImGui::AlignTextToFramePadding();
     ImGui::Text("Model Pos (X/Y/Z):     ");
     ImGui::SameLine();
-    ImGui::SliderFloat3("##ModelPos", glm::value_ptr(settings.isWorldPosition),
+    ImGui::SliderFloat3("##ModelPos", glm::value_ptr(settings.worldPosition),
                         -25.0f, 25.0f, "%.3f", flags);
 
     ImGui::AlignTextToFramePadding();
     ImGui::Text("Model Rotation (X/Y/Z):");
     ImGui::SameLine();
-    ImGui::SliderFloat3("##ModelRot", glm::value_ptr(settings.isWorldRotation),
+    ImGui::SliderFloat3("##ModelRot", glm::value_ptr(settings.worldRotation),
                         -180.0f, 180.0f, "%.3f", flags);
 
     ImGui::AlignTextToFramePadding();
     ImGui::Text("Model Scale:           ");
     ImGui::SameLine();
-    ImGui::SliderFloat("##ModelScale", &settings.isScale, 0.001f, 10.0f, "%.4f",
+    ImGui::SliderFloat("##ModelScale", &settings.scale, 0.001f, 10.0f, "%.4f",
                        flags);
 
     if (ImGui::Button("Reset Instance Values")) {
@@ -695,12 +701,12 @@ void UserInterface::createFrame(VkRenderData& renderData,
       ImGui::SameLine();
       if (ImGui::BeginCombo(
               "##ClipCombo",
-              animClips.at(settings.isAnimClipNr)->getClipName().c_str())) {
+              animClips.at(settings.animClipNr)->getClipName().c_str())) {
         for (int i = 0; i < animClips.size(); ++i) {
-          const bool isSelected = (settings.isAnimClipNr == i);
+          const bool isSelected = (settings.animClipNr == i);
           if (ImGui::Selectable(animClips.at(i)->getClipName().c_str(),
                                 isSelected)) {
-            settings.isAnimClipNr = i;
+            settings.animClipNr = i;
           }
 
           if (isSelected) {
@@ -712,7 +718,7 @@ void UserInterface::createFrame(VkRenderData& renderData,
       ImGui::AlignTextToFramePadding();
       ImGui::Text("Replay Speed:  ");
       ImGui::SameLine();
-      ImGui::SliderFloat("##ClipSpeed", &settings.isAnimSpeedFactor, 0.0f, 2.0f,
+      ImGui::SliderFloat("##ClipSpeed", &settings.animSpeedFactor, 0.0f, 2.0f,
                          "%.3f", flags);
     } else {
       /* TODO: better solution if no instances or no clips are found */

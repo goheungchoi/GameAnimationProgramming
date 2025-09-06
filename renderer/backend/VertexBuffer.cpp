@@ -5,9 +5,9 @@
 #include "CommandBuffer.h"
 #include "Logger.h"
 
-bool VertexBuffer::init(VkRenderData &renderData,
-                        VkVertexBufferData &vertexBufferData,
-                        unsigned int bufferSize) {
+bool VertexBuffer::init(const VkRenderData& renderData,
+                        VkVertexBufferData* vertexBufferData,
+                        VkDeviceSize bufferSize) {
   /* vertex buffer */
   VkBufferCreateInfo bufferInfo{};
   bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -20,8 +20,8 @@ bool VertexBuffer::init(VkRenderData &renderData,
   bufferAllocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 
   VkResult result = vmaCreateBuffer(renderData.rdAllocator, &bufferInfo,
-                                    &bufferAllocInfo, &vertexBufferData.buffer,
-                                    &vertexBufferData.bufferAlloc, nullptr);
+                                    &bufferAllocInfo, &vertexBufferData->buffer,
+                                    &vertexBufferData->alloc, nullptr);
   if (result != VK_SUCCESS) {
     Logger::log(
         1, "%s error: could not allocate vertex buffer via VMA (error: %i)\n",
@@ -40,8 +40,8 @@ bool VertexBuffer::init(VkRenderData &renderData,
   stagingAllocInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
 
   result = vmaCreateBuffer(renderData.rdAllocator, &stagingBufferInfo,
-                           &stagingAllocInfo, &vertexBufferData.stagingBuffer,
-                           &vertexBufferData.stagingBufferAlloc, nullptr);
+                           &stagingAllocInfo, &vertexBufferData->staging,
+                           &vertexBufferData->stagingAlloc, nullptr);
   if (result != VK_SUCCESS) {
     Logger::log(1,
                 "%s error: could not allocate vertex staging buffer via VMA "
@@ -49,17 +49,17 @@ bool VertexBuffer::init(VkRenderData &renderData,
                 __FUNCTION__, result);
     return false;
   }
-  vertexBufferData.bufferSize = bufferSize;
+  vertexBufferData->size = bufferSize;
   return true;
 }
 
-bool VertexBuffer::uploadData(VkRenderData &renderData,
-                              VkVertexBufferData &vertexBufferData,
-                              VkMesh vertexData) {
+bool VertexBuffer::uploadData(const VkRenderData& renderData,
+                              VkVertexBufferData* vertexBufferData,
+                              const VkMesh& vertexData) {
   unsigned int vertexDataSize = vertexData.vertices.size() * sizeof(VkVertex);
 
   /* buffer too small, resize */
-  if (vertexBufferData.bufferSize < vertexDataSize) {
+  if (vertexBufferData->size < vertexDataSize) {
     cleanup(renderData, vertexBufferData);
 
     if (!init(renderData, vertexBufferData, vertexDataSize)) {
@@ -70,22 +70,22 @@ bool VertexBuffer::uploadData(VkRenderData &renderData,
     }
     Logger::log(1, "%s: vertex buffer resize to %i bytes\n", __FUNCTION__,
                 vertexDataSize);
-    vertexBufferData.bufferSize = vertexDataSize;
+    vertexBufferData->size = vertexDataSize;
   }
 
   /* copy data to staging buffer */
   void *data;
   VkResult result = vmaMapMemory(renderData.rdAllocator,
-                                 vertexBufferData.stagingBufferAlloc, &data);
+                                 vertexBufferData->stagingAlloc, &data);
   if (result != VK_SUCCESS) {
     Logger::log(1, "%s error: could not map memory (error: %i)\n", __FUNCTION__,
                 result);
     return false;
   }
   std::memcpy(data, vertexData.vertices.data(), vertexDataSize);
-  vmaUnmapMemory(renderData.rdAllocator, vertexBufferData.stagingBufferAlloc);
-  vmaFlushAllocation(renderData.rdAllocator,
-                     vertexBufferData.stagingBufferAlloc, 0, vertexDataSize);
+  vmaUnmapMemory(renderData.rdAllocator, vertexBufferData->stagingAlloc);
+  vmaFlushAllocation(renderData.rdAllocator, vertexBufferData->stagingAlloc, 0,
+                     vertexDataSize);
 
   VkBufferMemoryBarrier vertexBufferBarrier{};
   vertexBufferBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
@@ -93,40 +93,39 @@ bool VertexBuffer::uploadData(VkRenderData &renderData,
   vertexBufferBarrier.dstAccessMask = VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
   vertexBufferBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
   vertexBufferBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-  vertexBufferBarrier.buffer = vertexBufferData.stagingBuffer;
+  vertexBufferBarrier.buffer = vertexBufferData->staging;
   vertexBufferBarrier.offset = 0;
-  vertexBufferBarrier.size = vertexBufferData.bufferSize;
+  vertexBufferBarrier.size = vertexBufferData->size;
 
   VkBufferCopy stagingBufferCopy{};
   stagingBufferCopy.srcOffset = 0;
   stagingBufferCopy.dstOffset = 0;
-  stagingBufferCopy.size = vertexBufferData.bufferSize;
+  stagingBufferCopy.size = vertexBufferData->size;
 
   /* trigger data transfer via command buffer */
   VkCommandBuffer commandBuffer =
-      CommandBuffer::createSingleShotBuffer(renderData);
+      CommandBuffer::createTransientBuffer(renderData);
 
-  vkCmdCopyBuffer(commandBuffer, vertexBufferData.stagingBuffer,
-                  vertexBufferData.buffer, 1, &stagingBufferCopy);
+  vkCmdCopyBuffer(commandBuffer, vertexBufferData->staging,
+                  vertexBufferData->buffer, 1, &stagingBufferCopy);
   vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT,
                        VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, 0, 0, nullptr, 1,
                        &vertexBufferBarrier, 0, nullptr);
 
-  if (!CommandBuffer::submitSingleShotBuffer(renderData, commandBuffer,
-                                             renderData.rdGraphicsQueue)) {
+  if (!CommandBuffer::submitTransientBuffer(renderData, commandBuffer)) {
     return false;
   }
 
   return true;
 }
 
-bool VertexBuffer::uploadData(VkRenderData &renderData,
-                              VkVertexBufferData &vertexBufferData,
-                              std::vector<glm::vec3> vertexData) {
+bool VertexBuffer::uploadData(const VkRenderData& renderData,
+                              VkVertexBufferData* vertexBufferData,
+                              const std::vector<glm::vec3>& vertexData) {
   unsigned int vertexDataSize = vertexData.size() * sizeof(glm::vec3);
 
   /* buffer too small, resize */
-  if (vertexBufferData.bufferSize < vertexDataSize) {
+  if (vertexBufferData->size < vertexDataSize) {
     cleanup(renderData, vertexBufferData);
 
     if (!init(renderData, vertexBufferData, vertexDataSize)) {
@@ -137,22 +136,22 @@ bool VertexBuffer::uploadData(VkRenderData &renderData,
     }
     Logger::log(1, "%s: vertex buffer resize to %i bytes\n", __FUNCTION__,
                 vertexDataSize);
-    vertexBufferData.bufferSize = vertexDataSize;
+    vertexBufferData->size = vertexDataSize;
   }
 
   /* copy data to staging buffer */
   void *data;
   VkResult result = vmaMapMemory(renderData.rdAllocator,
-                                 vertexBufferData.stagingBufferAlloc, &data);
+                                 vertexBufferData->stagingAlloc, &data);
   if (result != VK_SUCCESS) {
     Logger::log(1, "%s error: could not map memory (error: %i)\n", __FUNCTION__,
                 result);
     return false;
   }
   std::memcpy(data, vertexData.data(), vertexDataSize);
-  vmaUnmapMemory(renderData.rdAllocator, vertexBufferData.stagingBufferAlloc);
-  vmaFlushAllocation(renderData.rdAllocator,
-                     vertexBufferData.stagingBufferAlloc, 0, vertexDataSize);
+  vmaUnmapMemory(renderData.rdAllocator, vertexBufferData->stagingAlloc);
+  vmaFlushAllocation(renderData.rdAllocator, vertexBufferData->stagingAlloc, 0,
+                     vertexDataSize);
 
   VkBufferMemoryBarrier vertexBufferBarrier{};
   vertexBufferBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
@@ -160,37 +159,36 @@ bool VertexBuffer::uploadData(VkRenderData &renderData,
   vertexBufferBarrier.dstAccessMask = VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
   vertexBufferBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
   vertexBufferBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-  vertexBufferBarrier.buffer = vertexBufferData.stagingBuffer;
+  vertexBufferBarrier.buffer = vertexBufferData->staging;
   vertexBufferBarrier.offset = 0;
-  vertexBufferBarrier.size = vertexBufferData.bufferSize;
+  vertexBufferBarrier.size = vertexBufferData->size;
 
   VkBufferCopy stagingBufferCopy{};
   stagingBufferCopy.srcOffset = 0;
   stagingBufferCopy.dstOffset = 0;
-  stagingBufferCopy.size = vertexBufferData.bufferSize;
+  stagingBufferCopy.size = vertexBufferData->size;
 
   /* trigger data transfer via command buffer */
   VkCommandBuffer commandBuffer =
-      CommandBuffer::createSingleShotBuffer(renderData);
+      CommandBuffer::createTransientBuffer(renderData);
 
-  vkCmdCopyBuffer(commandBuffer, vertexBufferData.stagingBuffer,
-                  vertexBufferData.buffer, 1, &stagingBufferCopy);
+  vkCmdCopyBuffer(commandBuffer, vertexBufferData->staging,
+                  vertexBufferData->buffer, 1, &stagingBufferCopy);
   vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT,
                        VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, 0, 0, nullptr, 1,
                        &vertexBufferBarrier, 0, nullptr);
 
-  if (!CommandBuffer::submitSingleShotBuffer(renderData, commandBuffer,
-                                             renderData.rdGraphicsQueue)) {
+  if (!CommandBuffer::submitTransientBuffer(renderData, commandBuffer)) {
     return false;
   }
 
   return true;
 }
 
-void VertexBuffer::cleanup(VkRenderData &renderData,
-                           VkVertexBufferData &vertexBufferData) {
-  vmaDestroyBuffer(renderData.rdAllocator, vertexBufferData.stagingBuffer,
-                   vertexBufferData.stagingBufferAlloc);
-  vmaDestroyBuffer(renderData.rdAllocator, vertexBufferData.buffer,
-                   vertexBufferData.bufferAlloc);
+void VertexBuffer::cleanup(const VkRenderData& renderData,
+                           VkVertexBufferData* vertexBufferData) {
+  vmaDestroyBuffer(renderData.rdAllocator, vertexBufferData->staging,
+                   vertexBufferData->stagingAlloc);
+  vmaDestroyBuffer(renderData.rdAllocator, vertexBufferData->buffer,
+                   vertexBufferData->alloc);
 }

@@ -8,14 +8,18 @@
 
 class WindowApp {
   GLFWwindow* mWindow{nullptr};
-  std::unique_ptr<class VkRenderer> mRenderer{nullptr};
-  std::unique_ptr<class Camera> mCamera{nullptr};
 
   bool bMouseButtonRightPressed{false};
   int mCurrMouseXPos{0};
   int mCurrMouseYPos{0};
 
+  std::unique_ptr<class VkRenderer> mRenderer;
+
+  std::shared_ptr<class Camera> mCamera;
  public:
+  WindowApp();
+  ~WindowApp();
+
   bool init(unsigned int width, unsigned int height, const std::string& title);
   void run();
   void cleanup();

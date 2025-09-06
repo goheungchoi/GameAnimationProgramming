@@ -7,8 +7,11 @@
 
 class UniformBuffer {
  public:
-  static bool init(VkRenderData &renderData, VkUniformBufferData &uboData);
-  static void uploadData(VkRenderData &renderData, VkUniformBufferData &uboData,
-                         VkUploadMatrices matrices);
-  static void cleanup(VkRenderData &renderData, VkUniformBufferData &uboData);
+  static bool init(const VkRenderData& renderData,
+                   VkUniformBufferData* uboData);
+  static void uploadData(const VkRenderData& renderData,
+                         VkUniformBufferData* uboData,
+                         const VkUploadMatrices& matrices);
+  static void cleanup(const VkRenderData& renderData,
+                      VkUniformBufferData* uboData);
 };

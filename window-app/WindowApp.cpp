@@ -3,11 +3,16 @@
 #include "VkRenderer.h"
 
 #include "Logger.h"
+#include "Camera.h"
 
 #include <imgui_impl_glfw.h>
 
-bool WindowApp::init(unsigned int width, unsigned int height, const std::string& title)
-{
+WindowApp::WindowApp() : mRenderer{nullptr}, mCamera{nullptr} {}
+
+WindowApp::~WindowApp() {}
+
+bool WindowApp::init(unsigned int width, unsigned int height,
+                     const std::string& title) {
 	if (!glfwInit()) {
 		Logger::log(1, "%s: glfwInit() error\n", __FUNCTION__);
 		return false;
@@ -65,7 +70,7 @@ bool WindowApp::init(unsigned int width, unsigned int height, const std::string&
 
 	/* Initialize camera */
   mCamera = std::make_unique<Camera>();
-	mRenderer->bindCamera(mCamera.get());
+	mRenderer->bindCamera(mCamera);
 
 	Logger::log(1, "%s: Window with Vulkan successfully initialized\n", __FUNCTION__);
 	return true;
@@ -115,6 +120,39 @@ void WindowApp::handleResize(int width, int height) {
 
 void WindowApp::handleKeyEvents(int key, int scancode, int action, int mods)
 {
+  /* hide from application */
+  ImGuiIO& io = ImGui::GetIO();
+  if (io.WantCaptureKeyboard) {
+    return;
+  }
+	
+	if (mCamera) {
+		if (key == GLFW_KEY_W && action == GLFW_PRESS) {
+			mCamera->addMoveForward(1);
+		}
+    if (key == GLFW_KEY_S && action == GLFW_PRESS) {
+      mCamera->addMoveForward(-1);
+    }
+    if (key == GLFW_KEY_A && action == GLFW_PRESS) {
+      mCamera->addMoveRight(-1);
+		}
+    if (key == GLFW_KEY_D && action == GLFW_PRESS) {
+			mCamera->addMoveRight(1);
+		}
+    if (key == GLFW_KEY_E && action == GLFW_PRESS) {
+			mCamera->addMoveUp(1);
+		}
+    if (key == GLFW_KEY_Q && action == GLFW_PRESS) {
+			mCamera->addMoveUp(-1);
+		}
+
+		if (key == GLFW_KEY_MINUS && action == GLFW_PRESS) {
+      mCamera->addMoveSpeed(-10);
+		}
+		if (key == GLFW_KEY_EQUAL && action == GLFW_PRESS) {
+			mCamera->addMoveSpeed(10);            
+		}
+	}
 }
 
 void WindowApp::handleMouseButtonEvents(int button, int action, int mods)
@@ -162,30 +200,26 @@ void WindowApp::handleMousePositionEvents(double xPos, double yPos)
   if (io.WantCaptureMouse) {
     return;
   }
-	
-	// TODO: Camera
 
   /* calculate relative movement from last position */
   int mouseMoveRelX = static_cast<int>(xPos) - mCurrMouseXPos;
   int mouseMoveRelY = static_cast<int>(yPos) - mCurrMouseYPos;
 
   if (bMouseButtonRightPressed) {
-    mRenderData.rdViewAzimuth += mouseMoveRelX / 10.0;
-    /* keep between 0 and 360 degree */
-    if (mRenderData.rdViewAzimuth < 0.0) {
-      mRenderData.rdViewAzimuth += 360.0;
-    }
-    if (mRenderData.rdViewAzimuth >= 360.0) {
-      mRenderData.rdViewAzimuth -= 360.0;
-    }
-
-    mRenderData.rdViewElevation -= mouseMoveRelY / 10.0;
-    /* keep between -89 and +89 degree */
-    mRenderData.rdViewElevation =
-        std::clamp(mRenderData.rdViewElevation, -89.0f, 89.0f);
+    if (mCamera) {
+      mCamera->addViewAzimuth(mouseMoveRelX / 10.0f);
+      mCamera->addViewElevation(mouseMoveRelY / 10.0f);
+		}
   }
 
   /* save old values */
   mCurrMouseXPos = static_cast<int>(xPos);
   mCurrMouseYPos = static_cast<int>(yPos);
+}
+
+void WindowApp::update(float deltaTime) { 
+	/* update camera */
+	mCamera->updateCamera(deltaTime);
+
+	mRenderer->updateAnimations(deltaTime);
 }

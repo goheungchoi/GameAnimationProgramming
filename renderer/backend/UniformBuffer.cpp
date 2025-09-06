@@ -4,8 +4,8 @@
 
 #include "Logger.h"
 
-bool UniformBuffer::init(VkRenderData &renderData,
-                         VkUniformBufferData &uboData) {
+bool UniformBuffer::init(const VkRenderData& renderData,
+                         VkUniformBufferData* uboData) {
   VkBufferCreateInfo bufferInfo{};
   bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
   bufferInfo.size = sizeof(VkUploadMatrices);
@@ -16,7 +16,7 @@ bool UniformBuffer::init(VkRenderData &renderData,
 
   VkResult result =
       vmaCreateBuffer(renderData.rdAllocator, &bufferInfo, &vmaAllocInfo,
-                      &uboData.buffer, &uboData.bufferAlloc, nullptr);
+                      &uboData->buffer, &uboData->alloc, nullptr);
   if (result != VK_SUCCESS) {
     Logger::log(
         1, "%s error: could not allocate uniform buffer via VMA (error: %i)\n",
@@ -27,12 +27,11 @@ bool UniformBuffer::init(VkRenderData &renderData,
   return true;
 }
 
-void UniformBuffer::uploadData(VkRenderData &renderData,
-                               VkUniformBufferData &uboData,
-                               VkUploadMatrices matrices) {
-  void *data;
-  VkResult result =
-      vmaMapMemory(renderData.rdAllocator, uboData.bufferAlloc, &data);
+void UniformBuffer::uploadData(const VkRenderData& renderData,
+                               VkUniformBufferData* uboData,
+                               const VkUploadMatrices& matrices) {
+  void* data;
+  VkResult result = vmaMapMemory(renderData.rdAllocator, uboData->alloc, &data);
   if (result != VK_SUCCESS) {
     Logger::log(1,
                 "%s error: could not map uniform buffer memory (error: %i)\n",
@@ -40,12 +39,11 @@ void UniformBuffer::uploadData(VkRenderData &renderData,
     return;
   }
   std::memcpy(data, &matrices, sizeof(VkUploadMatrices));
-  vmaUnmapMemory(renderData.rdAllocator, uboData.bufferAlloc);
-  vmaFlushAllocation(renderData.rdAllocator, uboData.bufferAlloc, 0,
-                     uboData.bufferSize);
+  vmaUnmapMemory(renderData.rdAllocator, uboData->alloc);
+  vmaFlushAllocation(renderData.rdAllocator, uboData->alloc, 0, uboData->size);
 }
 
-void UniformBuffer::cleanup(VkRenderData &renderData,
-                            VkUniformBufferData &uboData) {
-  vmaDestroyBuffer(renderData.rdAllocator, uboData.buffer, uboData.bufferAlloc);
+void UniformBuffer::cleanup(const VkRenderData& renderData,
+                            VkUniformBufferData* uboData) {
+  vmaDestroyBuffer(renderData.rdAllocator, uboData->buffer, uboData->alloc);
 }
