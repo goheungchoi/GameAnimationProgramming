@@ -144,10 +144,301 @@ bool VkRenderer::init(unsigned int width, unsigned int height) {
 }
 
 bool VkRenderer::setSize(unsigned int width, unsigned int height) {
-  return false;
+  /* handle minimize */
+  if (width == 0 || height == 0) {
+    return false;
+  }
+
+  mRenderData.rdWidth = width;
+  mRenderData.rdHeight = height;
+
+  /* Vulkan detects changes and recreates swapchain */
+  Logger::log(1, "%s: resized window to %ix%i\n", __FUNCTION__, width, height);
+	return true;
 }
 
-bool VkRenderer::draw() { return false; }
+bool VkRenderer::bindCamera(const Camera* cam) {
+	mCam = cam;
+}
+
+void VkRenderer::hideMouse(bool bHide) {
+	bHideMouse = bHide;
+}
+
+bool VkRenderer::draw() {
+  VkResult result = VK_SUCCESS;
+
+  result = vkWaitForFences(mRenderData.rdVkbDevice.device, 1,
+                           &mRenderData.rdRenderFence, VK_TRUE, UINT64_MAX);
+  if (result != VK_SUCCESS) {
+    Logger::log(1, "%s error: waiting for fence failed (error: %i)\n",
+                __FUNCTION__, result);
+    return false;
+  }
+
+  /* Render buffer acquisition */
+  uint32_t imageIndex = 0;
+  result = vkAcquireNextImageKHR(
+      mRenderData.rdVkbDevice.device, mRenderData.rdVkbSwapchain.swapchain,
+      UINT64_MAX, mRenderData.rdPresentSemaphore, VK_NULL_HANDLE, &imageIndex);
+  if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+    return recreateSwapchain();
+  } else {
+    if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+      Logger::log(
+          1, "%s error: failed to acquire swapchain image. Error is '%i'\n",
+          __FUNCTION__, result);
+      return false;
+    }
+  }
+
+  result = vkResetFences(mRenderData.rdVkbDevice.device, 1,
+                         &mRenderData.rdRenderFence);
+  if (result != VK_SUCCESS) {
+    Logger::log(1, "%s error:  fence reset failed (error: %i)\n", __FUNCTION__,
+                result);
+    return false;
+  }
+
+  /* Matrix generation */
+  mMatrixGenerateTimer.start();
+  mMatrices.proj = glm::perspective(
+      glm::radians(static_cast<float>(mRenderData.rdFOV)),
+      static_cast<float>(mRenderData.rdVkbSwapchain.extent.width) /
+          static_cast<float>(mRenderData.rdVkbSwapchain.extent.height),
+      0.1f, 500.0f);
+  mMatrices.view = mCamera.getViewMatrix(mRenderData);
+  mRenderData.rdMatrixGenerateTime += mMatrixGenerateTimer.stop();
+
+	/* Upload UBO */
+	mUploadToUBOTimer.start();
+  UniformBuffer::uploadData(mRenderData, mPerspectiveViewMatrixUBO, mMatrices);
+  mRenderData.rdUploadToUBOTime += mUploadToUBOTimer.stop();
+
+	// TODO: Move it to update().
+	/* Update model matrix SSBO */
+	//mWorldPosMatrices.clear();
+ // mModelBoneMatrices.clear();
+ // for (const auto& modelType : mModelInstData.miAssimpInstancesPerModel) {
+ //   size_t numberOfInstances = modelType.second.size();
+ //   if (numberOfInstances > 0) {
+ //     std::shared_ptr<AssimpModel> model = modelType.second.at(0)->getModel();
+
+ //     /* animated models */
+ //     if (model->hasAnimations() &&
+ //         !modelType.second.at(0)->getBoneMatrices().empty()) {
+ //       mMatrixGenerateTimer.start();
+ //       for (unsigned int i = 0; i < numberOfInstances; ++i) {
+ //         modelType.second.at(i)->updateAnimation(deltaTime);
+ //         std::vector<glm::mat4> instanceBoneMatrices =
+ //             modelType.second.at(i)->getBoneMatrices();
+ //         mModelBoneMatrices.insert(mModelBoneMatrices.end(),
+ //                                   instanceBoneMatrices.begin(),
+ //                                   instanceBoneMatrices.end());
+ //       }
+
+ //       mRenderData.rdMatrixGenerateTime += mMatrixGenerateTimer.stop();
+ //     } else {
+ //       /* non-animated models */
+ //       mMatrixGenerateTimer.start();
+
+ //       for (const auto& instance : modelType.second) {
+ //         mWorldPosMatrices.emplace_back(instance->getWorldTransformMatrix());
+ //       }
+
+ //       mRenderData.rdMatrixGenerateTime += mMatrixGenerateTimer.stop();
+ //     }
+ //   }
+ // }
+	/*mRenderData.rdMatricesSize = mModelBoneMatrices.size() * sizeof(glm::mat4) +
+                               mWorldPosMatrices.size() * sizeof(glm::mat4);*/
+
+	/* we need to update descriptors after the upload if buffer size changed */
+  bool bufferResized = false;
+  mUploadToUBOTimer.start();
+  bufferResized = ShaderStorageBuffer::uploadSSBOData(
+      mRenderData, &mBoneMatrixBuffer, mModelInstData.mModelBoneMatrices);
+  bufferResized |= ShaderStorageBuffer::uploadSSBOData(
+      mRenderData, &mWorldPosBuffer, mModelInstData.mWorldPosMatrices);
+  if (bufferResized) {
+    updateDescriptorSets();
+  }
+  mRenderData.rdUploadToUBOTime += mUploadToUBOTimer.stop();
+
+	/* Command buffer setting */
+	if (!CommandBuffer::reset(mRenderData.rdCommandBuffer)) {
+    Logger::log(1, "%s error: failed to reset command buffer\n", __FUNCTION__);
+    return false;
+  }
+  if (!CommandBuffer::beginTransient(mRenderData.rdCommandBuffer)) {
+    Logger::log(1, "%s error: failed to begin command buffer\n", __FUNCTION__);
+    return false;
+  }
+
+	/* Render pass start */
+	VkClearValue colorClearValue;
+  colorClearValue.color = {{0.25f, 0.25f, 0.25f, 1.0f}};
+
+  VkClearValue depthValue;
+  depthValue.depthStencil.depth = 1.0f;
+
+  std::vector<VkClearValue> clearValues = {colorClearValue, depthValue};
+
+  VkRenderPassBeginInfo rpInfo{};
+  rpInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+  rpInfo.renderPass = mRenderData.rdRenderpass;
+
+  rpInfo.renderArea.offset.x = 0;
+  rpInfo.renderArea.offset.y = 0;
+  rpInfo.renderArea.extent = mRenderData.rdVkbSwapchain.extent;
+  rpInfo.framebuffer = mRenderData.rdFramebuffers.at(imageIndex);
+
+  rpInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+  rpInfo.pClearValues = clearValues.data();
+
+  vkCmdBeginRenderPass(mRenderData.rdCommandBuffer, &rpInfo,
+                       VK_SUBPASS_CONTENTS_INLINE);
+
+	/* Flip viewport to be compatible with OpenGL */
+  VkViewport viewport{};
+  viewport.x = 0.0f;
+  viewport.y = static_cast<float>(mRenderData.rdVkbSwapchain.extent.height);
+  viewport.width = static_cast<float>(mRenderData.rdVkbSwapchain.extent.width);
+  viewport.height =
+      -static_cast<float>(mRenderData.rdVkbSwapchain.extent.height);
+  viewport.minDepth = 0.0f;
+  viewport.maxDepth = 1.0f;
+
+  VkRect2D scissor{};
+  scissor.offset = {0, 0};
+  scissor.extent = mRenderData.rdVkbSwapchain.extent;
+
+  vkCmdSetViewport(mRenderData.rdCommandBuffer, 0, 1, &viewport);
+  vkCmdSetScissor(mRenderData.rdCommandBuffer, 0, 1, &scissor);
+
+	/* Draw the models */
+  uint32_t worldPosMatIndexOffset = 0;
+  uint32_t worldPosMatIndexOffsetSkinned = 0;
+  for (const auto& modelType : mModelInstData.miAssimpInstancesPerModel) {
+    size_t numberOfInstances = modelType.second.size();
+    if (numberOfInstances > 0) {
+      std::shared_ptr<AssimpModel> model = modelType.second.at(0)->getModel();
+
+      /* Animated models */
+      if (model->hasAnimations() &&
+          !modelType.second.at(0)->getBoneMatrices().empty()) {
+        size_t numberOfBones = model->getBoneList().size();
+
+        mUploadToUBOTimer.start();
+        mModelData.pkModelStride = numberOfBones;
+        mModelData.pkWorldPosMatIndexOffset = worldPosMatIndexOffsetSkinned;
+        vkCmdPushConstants(mRenderData.rdCommandBuffer,
+                           mRenderData.rdAssimpSkinningPipelineLayout,
+                           VK_SHADER_STAGE_VERTEX_BIT, 0,
+                           static_cast<uint32_t>(sizeof(VkPushConstants)),
+                           &mModelData);
+        mRenderData.rdUploadToUBOTime += mUploadToUBOTimer.stop();
+
+        vkCmdBindPipeline(mRenderData.rdCommandBuffer,
+                          VK_PIPELINE_BIND_POINT_GRAPHICS,
+                          mRenderData.rdAssimpSkinningPipeline);
+
+        vkCmdBindDescriptorSets(
+            mRenderData.rdCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+            mRenderData.rdAssimpSkinningPipelineLayout, 1, 1,
+            &mRenderData.rdAssimpSkinningDescriptorSet, 0, nullptr);
+        model->drawInstanced(mRenderData, numberOfInstances);
+        worldPosMatIndexOffsetSkinned += numberOfInstances * numberOfBones;
+      } else {
+        /* Non-animated models */
+        mUploadToUBOTimer.start();
+        mModelData.pkWorldPosMatIndexOffset = worldPosMatIndexOffset;
+        vkCmdPushConstants(
+            mRenderData.rdCommandBuffer, mRenderData.rdAssimpPipelineLayout,
+            VK_SHADER_STAGE_VERTEX_BIT, 0,
+            static_cast<uint32_t>(sizeof(VkPushConstants)), &mModelData);
+        mRenderData.rdUploadToUBOTime += mUploadToUBOTimer.stop();
+
+        vkCmdBindPipeline(mRenderData.rdCommandBuffer,
+                          VK_PIPELINE_BIND_POINT_GRAPHICS,
+                          mRenderData.rdAssimpPipeline);
+
+        vkCmdBindDescriptorSets(mRenderData.rdCommandBuffer,
+                                VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                mRenderData.rdAssimpPipelineLayout, 1, 1,
+                                &mRenderData.rdAssimpDescriptorSet, 0, nullptr);
+        model->drawInstanced(mRenderData, numberOfInstances);
+        worldPosMatIndexOffset += numberOfInstances;
+      }
+    }
+  }
+
+	/* imGui overlay */
+  mUIGenerateTimer.start();
+  mUserInterface.hideMouse(bHideMouse);
+  mUserInterface.createFrame(mRenderData, mModelInstData);
+  mRenderData.rdUIGenerateTime += mUIGenerateTimer.stop();
+
+  mUIDrawTimer.start();
+  mUserInterface.render(mRenderData);
+  mRenderData.rdUIDrawTime = mUIDrawTimer.stop();
+
+  vkCmdEndRenderPass(mRenderData.rdCommandBuffer);
+
+  if (!CommandBuffer::end(mRenderData.rdCommandBuffer)) {
+    Logger::log(1, "%s error: failed to end command buffer\n", __FUNCTION__);
+    return false;
+  }
+
+	/* Submit command buffer */
+  VkSubmitInfo submitInfo{};
+  submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+  VkPipelineStageFlags waitStage =
+      VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+  submitInfo.pWaitDstStageMask = &waitStage;
+
+  submitInfo.waitSemaphoreCount = 1;
+  submitInfo.pWaitSemaphores = &mRenderData.rdPresentSemaphore;
+
+  submitInfo.signalSemaphoreCount = 1;
+  submitInfo.pSignalSemaphores = &mRenderData.rdRenderSemaphore;
+
+  submitInfo.commandBufferCount = 1;
+  submitInfo.pCommandBuffers = &mRenderData.rdCommandBuffer;
+
+  result = vkQueueSubmit(mRenderData.rdGraphicsQueue, 1, &submitInfo,
+                         mRenderData.rdRenderFence);
+  if (result != VK_SUCCESS) {
+    Logger::log(1, "%s error: failed to submit draw command buffer (%i)\n",
+                __FUNCTION__, result);
+    return false;
+  }
+
+	/* Present to the screen */
+	VkPresentInfoKHR presentInfo{};
+  presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+  presentInfo.waitSemaphoreCount = 1;
+  presentInfo.pWaitSemaphores = &mRenderData.rdRenderSemaphore;
+
+  presentInfo.swapchainCount = 1;
+  presentInfo.pSwapchains = &mRenderData.rdVkbSwapchain.swapchain;
+
+  presentInfo.pImageIndices = &imageIndex;
+
+  result = vkQueuePresentKHR(mRenderData.rdPresentQueue, &presentInfo);
+  if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
+    return recreateSwapchain();
+  } else {
+    if (result != VK_SUCCESS) {
+      Logger::log(1, "%s error: failed to present swapchain image\n",
+                  __FUNCTION__);
+      return false;
+    }
+  }
+
+  return true;
+}
 
 bool VkRenderer::hasModel(std::string modelFileName) {
   auto modelIter = std::find_if(
@@ -306,6 +597,78 @@ void VkRenderer::cloneInstance(std::shared_ptr<AssimpInstance> instance) {
       .emplace_back(newInstance);
 
   updateTriangleCount();
+}
+
+void VkRenderer::cleanup() {
+  VkResult result = vkDeviceWaitIdle(mRenderData.rdVkbDevice.device);
+  if (result != VK_SUCCESS) {
+    Logger::log(1,
+                "%s fatal error: could not wait for device idle (error: %i)\n",
+                __FUNCTION__, result);
+    return;
+  }
+
+  /* delete models to destroy Vulkan objects */
+  for (const auto& model : mModelInstData.miModelList) {
+    model->cleanup(mRenderData);
+  }
+
+  for (const auto& model : mModelInstData.miPendingDeleteAssimpModels) {
+    model->cleanup(mRenderData);
+  }
+
+  mUserInterface.cleanup(mRenderData);
+
+  SyncObjects::cleanup(&mRenderData);
+  CommandBuffer::cleanup(mRenderData, &mRenderData.rdCommandBuffer);
+  CommandPool::cleanup(&mRenderData);
+  Framebuffer::cleanup(&mRenderData);
+
+  SkinningPipeline::cleanup(mRenderData, mRenderData.rdAssimpPipeline);
+  SkinningPipeline::cleanup(mRenderData, mRenderData.rdAssimpSkinningPipeline);
+
+  PipelineLayout::cleanup(mRenderData, mRenderData.rdAssimpPipelineLayout);
+  PipelineLayout::cleanup(mRenderData,
+                          mRenderData.rdAssimpSkinningPipelineLayout);
+  Renderpass::cleanup(&mRenderData);
+
+  UniformBuffer::cleanup(mRenderData, mPerspectiveViewMatrixUBO);
+  ShaderStorageBuffer::cleanup(mRenderData, &mBoneMatrixBuffer);
+  ShaderStorageBuffer::cleanup(mRenderData, &mWorldPosBuffer);
+
+  vkFreeDescriptorSets(mRenderData.rdVkbDevice.device,
+                       mRenderData.rdDescriptorPool, 1,
+                       &mRenderData.rdAssimpDescriptorSet);
+  vkFreeDescriptorSets(mRenderData.rdVkbDevice.device,
+                       mRenderData.rdDescriptorPool, 1,
+                       &mRenderData.rdAssimpSkinningDescriptorSet);
+
+  vkDestroyDescriptorSetLayout(mRenderData.rdVkbDevice.device,
+                               mRenderData.rdAssimpDescriptorLayout, nullptr);
+  vkDestroyDescriptorSetLayout(mRenderData.rdVkbDevice.device,
+                               mRenderData.rdAssimpTextureDescriptorLayout,
+                               nullptr);
+
+  vkDestroyDescriptorPool(mRenderData.rdVkbDevice.device,
+                          mRenderData.rdDescriptorPool, nullptr);
+
+  vkDestroyImageView(mRenderData.rdVkbDevice.device,
+                     mRenderData.rdDepthImageView, nullptr);
+
+  vmaDestroyImage(mRenderData.rdAllocator, mRenderData.rdDepthImage,
+                  mRenderData.rdDepthImageAlloc);
+  vmaDestroyAllocator(mRenderData.rdAllocator);
+
+  mRenderData.rdVkbSwapchain.destroy_image_views(
+      mRenderData.rdSwapchainImageViews);
+  vkb::destroy_swapchain(mRenderData.rdVkbSwapchain);
+
+  vkb::destroy_device(mRenderData.rdVkbDevice);
+  vkb::destroy_surface(mRenderData.rdVkbInstance.instance, mSurface);
+  vkb::destroy_instance(mRenderData.rdVkbInstance);
+
+  Logger::log(1, "%s: Vulkan renderer destroyed\n", __FUNCTION__);
+
 }
 
 bool VkRenderer::deviceInit() {

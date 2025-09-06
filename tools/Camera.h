@@ -6,15 +6,37 @@
 #include "VkRenderData.h"
 
 class Camera {
-  public:
-    void updateCamera(VkRenderData& renderData, const float deltaTime);
-    glm::mat4 getViewMatrix(VkRenderData& renderData);
+ public:
+  void addViewAzimuth(double dAzimuth);
+  void addViewElevation(double dElevation);
 
-  private:
-    glm::vec3 mViewDirection = glm::vec3(0.0f, 0.0f, 0.0f);
-    glm::vec3 mRightDirection = glm::vec3(0.0f, 0.0f, 0.0f);
-    glm::vec3 mUpDirection = glm::vec3(0.0f, 0.0f, 0.0f);
+	void addMoveForward(float dForward);
+  void addMoveRight(float dRight);
+  void addMoveUp(float dUp);
+  void addMoveSpeed(float dSpeed);
 
-    /* world up is positive Y */
-    glm::vec3 mWorldUpVector = glm::vec3(0.0f, 1.0f, 0.0f);
+	glm::vec3 GetRotation() const;
+	glm::vec3 GetTranslation() const;
+	float GetMoveSpeed() const;
+
+  void updateCamera(const float deltaTime);
+  glm::mat4 getViewMatrix();
+
+ private:
+  float mViewAzimuth{330.0f};
+  float mViewElevation{-20.0f};
+
+	float mMoveForward{0.f};
+	float mMoveRight{0.f};
+	float mMoveUp{0.f};
+	float mMoveSpeed{1.f};
+
+  glm::vec3 mWorldPosition = glm::vec3(2.0f, 5.0f, 7.0f);
+
+  glm::vec3 mViewDirection = glm::vec3(0.0f, 0.0f, 0.0f);
+  glm::vec3 mRightDirection = glm::vec3(0.0f, 0.0f, 0.0f);
+  glm::vec3 mUpDirection = glm::vec3(0.0f, 0.0f, 0.0f);
+
+  /* world up is positive Y */
+  glm::vec3 mWorldUpVector = glm::vec3(0.0f, 1.0f, 0.0f);
 };

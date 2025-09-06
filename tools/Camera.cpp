@@ -1,13 +1,48 @@
 #include "Camera.h"
 #include <glm/gtc/matrix_transform.hpp>
 
-void Camera::updateCamera(VkRenderData& renderData, const float deltaTime) {
+void Camera::addViewAzimuth(double dAzimuth) {
+  mViewAzimuth += dAzimuth;
+  /* keep between 0 and 360 degree */
+  if (mViewAzimuth < 0.0f) {
+    mViewAzimuth += 360.0f;
+  }
+  if (mViewAzimuth >= 360.0f) {
+    mViewAzimuth -= 360.0f;
+  }
+}
+
+void Camera::addViewElevation(double dElevation) {
+  mViewElevation += dElevation;
+  /* keep between -89 and +89 degree */
+  mViewElevation = std::clamp(mViewElevation, -89.0f, 89.0f);
+}
+
+void Camera::addMoveForward(float dForward) {
+	mMoveForward += dForward;
+}
+
+void Camera::addMoveRight(float dRight) {
+	mMoveRight += dRight;
+}
+
+void Camera::addMoveUp(float dUp) {
+	mMoveUp += dUp;
+}
+
+void Camera::addMoveSpeed(float dSpeed) {
+	mMoveSpeed += dSpeed;
+  /* keep between 1 and 100 */
+	mMoveSpeed = std::clamp(mMoveSpeed, 1.f, 100.f);
+}
+
+void Camera::updateCamera(const float deltaTime) {
   if (deltaTime == 0.0f) {
     return;
   }
 
-  float azimRad = glm::radians(renderData.rdViewAzimuth);
-  float elevRad = glm::radians(renderData.rdViewElevation);
+  float azimRad = glm::radians(mViewAzimuth);
+  float elevRad = glm::radians(mViewElevation);
 
   float sinAzim = std::sin(azimRad);
   float cosAzim = std::cos(azimRad);
@@ -23,13 +58,16 @@ void Camera::updateCamera(VkRenderData& renderData, const float deltaTime) {
   mUpDirection = glm::normalize(glm::cross(mRightDirection, mViewDirection));
 
   /* update camera position depending on desired movement */
-  renderData.rdCameraWorldPosition +=
-    renderData.rdMoveForward * deltaTime * mViewDirection +
-      renderData.rdMoveRight * deltaTime * mRightDirection +
-      renderData.rdMoveUp * deltaTime * mUpDirection;
+  mWorldPosition +=
+    mMoveForward * deltaTime * mViewDirection +
+      mMoveRight * deltaTime * mRightDirection +
+      mMoveUp * deltaTime * mUpDirection;
 }
 
-glm::mat4 Camera::getViewMatrix(VkRenderData &renderData) {
-  return glm::lookAt(renderData.rdCameraWorldPosition,
-    renderData.rdCameraWorldPosition + mViewDirection, mUpDirection);
+glm::mat4 Camera::getViewMatrix() {
+  glm::vec3 eye = mWorldPosition;
+	glm::vec3 at = mWorldPosition + mViewDirection;
+	glm::vec3 up = mUpDirection;
+
+  return glm::lookAt(eye, at, up);
 }

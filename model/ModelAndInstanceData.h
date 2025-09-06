@@ -24,8 +24,14 @@ struct ModelAndInstanceData {
   std::vector<std::shared_ptr<AssimpModel>> miModelList{};
   int miSelectedModel = 0;
 
+  /* For non-animated models */
+  std::vector<glm::mat4> mWorldPosMatrices{};
+  /* For animated models */
+  std::vector<glm::mat4> mModelBoneMatrices{};
+
   std::vector<std::shared_ptr<AssimpInstance>> miAssimpInstances{};
-  std::unordered_map<std::string, std::vector<std::shared_ptr<AssimpInstance>>> miAssimpInstancesPerModel{};
+  std::unordered_map<std::string, std::vector<std::shared_ptr<AssimpInstance>>>
+      miAssimpInstancesPerModel{};
   int miSelectedInstance = 0;
 
   /* we can only delete models in Vulkan outside the command buffers,

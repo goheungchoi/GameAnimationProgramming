@@ -32,14 +32,15 @@ class VkRenderer {
   Timer mUIGenerateTimer{};
   Timer mUIDrawTimer{};
 
-	Camera* mCam{};
+	const Camera* mCam{};
  public:
   VkRenderer(GLFWwindow* window);
 
   bool init(unsigned int width, unsigned int height);
   bool setSize(unsigned int width, unsigned int height);
 
-	bool bindCamera(Camera* cam);
+	bool bindCamera(const Camera* cam);
+  void hideMouse(bool bHide);
 
   bool draw();
 
@@ -54,19 +55,17 @@ class VkRenderer {
   void deleteInstance(std::shared_ptr<AssimpInstance> instance);
   void cloneInstance(std::shared_ptr<AssimpInstance> instance);
 
+	void cleanup();
+
  private:
-  UserInterface mUserInterface{};
+  bool bHideMouse{};
   Camera mCamera{};
+  UserInterface mUserInterface{};
 
   VkPushConstants mModelData{};
   VkUniformBufferData mPerspectiveViewMatrixUBO{};
 
-  /* For non-animated models */
-  std::vector<glm::mat4> mWorldPosMatrices{};
-  VkShaderStorageBufferData mWorldPosBuffer{};
-
-  /* For animated models */
-  std::vector<glm::mat4> mModelBoneMatrices{};
+	VkShaderStorageBufferData mWorldPosBuffer{};
   VkShaderStorageBufferData mBoneMatrixBuffer{};
   
   /* Identity matrices */

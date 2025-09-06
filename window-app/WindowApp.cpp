@@ -4,6 +4,8 @@
 
 #include "Logger.h"
 
+#include <imgui_impl_glfw.h>
+
 bool WindowApp::init(unsigned int width, unsigned int height, const std::string& title)
 {
 	if (!glfwInit()) {
@@ -61,6 +63,10 @@ bool WindowApp::init(unsigned int width, unsigned int height, const std::string&
 		return false;
 	}
 
+	/* Initialize camera */
+  mCamera = std::make_unique<Camera>();
+	mRenderer->bindCamera(mCamera.get());
+
 	Logger::log(1, "%s: Window with Vulkan successfully initialized\n", __FUNCTION__);
 	return true;
 }
@@ -102,8 +108,9 @@ void WindowApp::cleanup()
 	Logger::log(1, "%s: Terminating Window\n", __FUNCTION__);
 }
 
-void WindowApp::handleResize(int width, int height)
-{
+void WindowApp::handleResize(int width, int height) {
+  if (mRenderer) 
+		mRenderer->setSize(width, height);
 }
 
 void WindowApp::handleKeyEvents(int key, int scancode, int action, int mods)
@@ -112,8 +119,73 @@ void WindowApp::handleKeyEvents(int key, int scancode, int action, int mods)
 
 void WindowApp::handleMouseButtonEvents(int button, int action, int mods)
 {
+  /* forward to ImGui */
+  ImGuiIO& io = ImGui::GetIO();
+  if (button >= 0 && button < ImGuiMouseButton_COUNT) {
+    io.AddMouseButtonEvent(button, action == GLFW_PRESS);
+  }
+
+  /* hide from application */
+  if (io.WantCaptureMouse) {
+    return;
+  }
+
+  if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
+    bMouseButtonRightPressed = !bMouseButtonRightPressed;
+		
+    if (bMouseButtonRightPressed) {
+      glfwSetInputMode(mWindow, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+      /* enable raw mode if possible */
+      if (glfwRawMouseMotionSupported()) {
+        glfwSetInputMode(mWindow, GLFW_RAW_MOUSE_MOTION,
+                         GLFW_TRUE);
+      }
+      if (mRenderer) {
+        mRenderer->hideMouse(true);
+      }
+    } else {
+      glfwSetInputMode(mWindow, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+      if (mRenderer) {
+        mRenderer->hideMouse(false);
+      }
+    }
+  }
 }
 
 void WindowApp::handleMousePositionEvents(double xPos, double yPos)
 {
+  /* forward to ImGui */
+  ImGuiIO& io = ImGui::GetIO();
+  io.AddMousePosEvent((float)xPos, (float)yPos);
+
+  /* hide from application */
+  if (io.WantCaptureMouse) {
+    return;
+  }
+	
+	// TODO: Camera
+
+  /* calculate relative movement from last position */
+  int mouseMoveRelX = static_cast<int>(xPos) - mCurrMouseXPos;
+  int mouseMoveRelY = static_cast<int>(yPos) - mCurrMouseYPos;
+
+  if (bMouseButtonRightPressed) {
+    mRenderData.rdViewAzimuth += mouseMoveRelX / 10.0;
+    /* keep between 0 and 360 degree */
+    if (mRenderData.rdViewAzimuth < 0.0) {
+      mRenderData.rdViewAzimuth += 360.0;
+    }
+    if (mRenderData.rdViewAzimuth >= 360.0) {
+      mRenderData.rdViewAzimuth -= 360.0;
+    }
+
+    mRenderData.rdViewElevation -= mouseMoveRelY / 10.0;
+    /* keep between -89 and +89 degree */
+    mRenderData.rdViewElevation =
+        std::clamp(mRenderData.rdViewElevation, -89.0f, 89.0f);
+  }
+
+  /* save old values */
+  mCurrMouseXPos = static_cast<int>(xPos);
+  mCurrMouseYPos = static_cast<int>(yPos);
 }

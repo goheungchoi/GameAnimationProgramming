@@ -7,7 +7,7 @@
 
 #include <glm/glm.hpp>
 
-#include <vulkan/vulkna.h>
+#include <vulkan/vulkan.h>
 #include <GLFW/glfw3.h>
 
 #include <VkBootstrap.h>
@@ -59,7 +59,7 @@ struct VkUniformBufferData {
 	VkBuffer buffer = VK_NULL_HANDLE;
 	VmaAllocation alloc = VK_NULL_HANDLE;
 
-	VkDescriptionSet descSet = VK_NULL_HANDLE;
+	VkDescriptorSet descSet = VK_NULL_HANDLE;
 };
 
 struct VkShaderStorageBufferData {
@@ -92,14 +92,6 @@ struct VkRenderData {
 	float rdUploadToUBOTime = 0.0f;
 	float rdUIGenerateTime = 0.0f;
 	float rdUIDrawTime = 0.0f;
-
-	int rdMoveForward = 0;
-	int rdMoveRight = 0;
-	int rdMoveUp = 0;
-
-	float rdViewAzimuth = 330.0f;
-	float rdViewElevation = -20.0f;
-	glm::vec3 rdCameraWorldPosition = glm::vec3(2.0f, 5.0f, 7.0f);
 
 	/* Vulkan specific stuff */
 	VmaAllocator rdAllocator = nullptr;
