@@ -33,7 +33,7 @@ void Camera::addMoveUp(float dUp) {
 void Camera::addMoveSpeed(float dSpeed) {
 	mMoveSpeed += dSpeed;
   /* keep between 1 and 100 */
-	mMoveSpeed = std::clamp(mMoveSpeed, 1.f, 100.f);
+	mMoveSpeed = std::clamp(mMoveSpeed, 1.f, 1000.f);
 }
 
 glm::vec3 Camera::getRotation() const {
@@ -70,9 +70,9 @@ void Camera::updateCamera(const float deltaTime) {
   mUpDirection = glm::normalize(glm::cross(mRightDirection, mViewDirection));
 
   /* update camera position depending on desired movement */
-	glm::vec3 dForward = deltaTime * mMoveForward * mViewDirection;
-	glm::vec3 dRight = deltaTime * mMoveRight * mRightDirection;
-	glm::vec3 dUp = deltaTime * mMoveUp * mUpDirection;
+	glm::vec3 dForward = deltaTime * mMoveSpeed * mMoveForward * mViewDirection;
+  glm::vec3 dRight = deltaTime * mMoveSpeed * mMoveRight * mRightDirection;
+	glm::vec3 dUp = deltaTime * mMoveSpeed * mMoveUp * mUpDirection;
   mWorldPosition += dForward;
 	mWorldPosition += dRight;
 	mWorldPosition += dUp;

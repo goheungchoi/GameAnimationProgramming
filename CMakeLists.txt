@@ -203,15 +203,15 @@ include_directories(${GLFW3_INCLUDE_DIR} ${GLM_INCLUDE_DIRS} ${ASSIMP_INCLUDE_DI
 
 # Compile shaders
 file(GLOB GLSL_SOURCE_FILES
-  shader/*.frag
-  shader/*.vert
+  shaders/*.frag
+  shaders/*.vert
 )
 
 if(Vulkan_GLSLC_EXECUTABLE)
   message("Using glslc to compile shaders")
   foreach(GLSL ${GLSL_SOURCE_FILES})
     get_filename_component(FILE_NAME ${GLSL} NAME)
-    set(SPIRV "${CMAKE_SOURCE_DIR}/shader/${FILE_NAME}.spv")
+    set(SPIRV "${CMAKE_SOURCE_DIR}/shaders/${FILE_NAME}.spv")
     add_custom_command(
       OUTPUT ${SPIRV}
       COMMAND ${Vulkan_GLSLC_EXECUTABLE} -o ${SPIRV} ${GLSL}
@@ -222,7 +222,7 @@ elseif (Vulkan_GLSLANG_VALIDATOR_EXECUTABLE)
   message("Using glslangValidator to compile shaders")
   foreach(GLSL ${GLSL_SOURCE_FILES})
     get_filename_component(FILE_NAME ${GLSL} NAME)
-    set(SPIRV "${CMAKE_SOURCE_DIR}/shader/${FILE_NAME}.spv")
+    set(SPIRV "${CMAKE_SOURCE_DIR}/shaders/${FILE_NAME}.spv")
     add_custom_command(
       OUTPUT ${SPIRV}
       COMMAND ${Vulkan_GLSLANG_VALIDATOR_EXECUTABLE} -V -o ${SPIRV} ${GLSL}

@@ -22,7 +22,9 @@
 #include "SyncObjects.h"
 #include "VkRenderer.h"
 
-VkRenderer::VkRenderer(GLFWwindow* window) {}
+VkRenderer::VkRenderer(GLFWwindow* window) { 
+	mRenderData.rdWindow = window; 
+}
 
 bool VkRenderer::init(unsigned int width, unsigned int height) {
   /* randomize rand() */
@@ -166,8 +168,17 @@ void VkRenderer::hideMouse(bool bHide) {
 }
 
 bool VkRenderer::draw() {
-  VkResult result = VK_SUCCESS;
+  /* reset timers and other values */
+  mRenderData.rdFrameTime = mFrameTimer.stop();
+  mFrameTimer.start();
+  mRenderData.rdMatricesSize = 0;
+  mRenderData.rdUploadToUBOTime = 0.0f;
+	mRenderData.rdUploadToSSBOTime = 0.0f;
+  mRenderData.rdUploadToVBOTime = 0.0f;
+  mRenderData.rdUIGenerateTime = 0.0f;
 
+	/* Wait for the prev frame */
+  VkResult result = VK_SUCCESS;
   result = vkWaitForFences(mRenderData.rdVkbDevice.device, 1,
                            &mRenderData.rdRenderFence, VK_TRUE, UINT64_MAX);
   if (result != VK_SUCCESS) {
@@ -594,6 +605,8 @@ void VkRenderer::cloneInstance(std::shared_ptr<AssimpInstance> instance) {
 }
 
 void VkRenderer::updateAnimations(float deltaTime) {
+  mRenderData.rdUpdateAnimationTime = 0.0f;
+
   for (const auto& [_, instances] : mModelInstData.miAssimpInstancesPerModel) {
     size_t numberOfInstances = instances.size();
     if (numberOfInstances > 0) {
@@ -1172,8 +1185,8 @@ bool VkRenderer::createPipelineLayouts() {
 }
 
 bool VkRenderer::createPipelines() {
-  std::string vertexShaderFile = "shader/assimp.vert.spv";
-  std::string fragmentShaderFile = "shader/assimp.frag.spv";
+  std::string vertexShaderFile = "shaders/assimp.vert.spv";
+  std::string fragmentShaderFile = "shaders/assimp.frag.spv";
   if (!SkinningPipeline::init(mRenderData, mRenderData.rdAssimpPipelineLayout,
                               &mRenderData.rdAssimpPipeline, vertexShaderFile,
                               fragmentShaderFile)) {
@@ -1182,8 +1195,8 @@ bool VkRenderer::createPipelines() {
     return false;
   }
 
-  vertexShaderFile = "shader/assimp_skinning.vert.spv";
-  fragmentShaderFile = "shader/assimp_skinning.frag.spv";
+  vertexShaderFile = "shaders/assimp_skinning.vert.spv";
+  fragmentShaderFile = "shaders/assimp_skinning.frag.spv";
   if (!SkinningPipeline::init(mRenderData,
                               mRenderData.rdAssimpSkinningPipelineLayout,
                               &mRenderData.rdAssimpSkinningPipeline,

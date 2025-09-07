@@ -7,6 +7,11 @@ VkShaderModule Shader::loadShader(VkDevice device,
                                   const std::string& shaderFileName) {
   std::string shaderAsText;
   shaderAsText = Tools::loadFileToString(shaderFileName);
+  if (shaderAsText.empty()) {
+    Logger::log(1, "%s: shader file '%s' is empty\n", __FUNCTION__,
+                shaderFileName.c_str());
+    return VK_NULL_HANDLE;
+  }
 
   VkShaderModuleCreateInfo shaderCreateInfo{};
   shaderCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
