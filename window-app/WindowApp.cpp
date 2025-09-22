@@ -210,7 +210,7 @@ void WindowApp::handleMousePositionEvents(double xPos, double yPos)
   if (bMouseButtonRightPressed) {
     if (mCamera) {
       mCamera->addViewAzimuth(mouseMoveRelX / 10.0f);
-      mCamera->addViewElevation(mouseMoveRelY / 10.0f);
+      mCamera->addViewElevation(-mouseMoveRelY / 10.0f);
 		}
   }
 
