@@ -48,7 +48,7 @@ bool SkinningPipeline::init(const VkRenderData& renderData,
   VkVertexInputAttributeDescription positionAttribute{};
   positionAttribute.binding = 0;
   positionAttribute.location = 0;
-  positionAttribute.format = VK_FORMAT_R32G32B32_SFLOAT;
+  positionAttribute.format = VK_FORMAT_R32G32B32A32_SFLOAT;
   positionAttribute.offset =
       static_cast<uint32_t>(offsetof(VkVertex, position));
 
@@ -61,25 +61,19 @@ bool SkinningPipeline::init(const VkRenderData& renderData,
   VkVertexInputAttributeDescription normalAttribute{};
   normalAttribute.binding = 0;
   normalAttribute.location = 2;
-  normalAttribute.format = VK_FORMAT_R32G32B32_SFLOAT;
+  normalAttribute.format = VK_FORMAT_R32G32B32A32_SFLOAT;
   normalAttribute.offset = static_cast<uint32_t>(offsetof(VkVertex, normal));
-
-  VkVertexInputAttributeDescription uvAttribute{};
-  uvAttribute.binding = 0;
-  uvAttribute.location = 3;
-  uvAttribute.format = VK_FORMAT_R32G32_SFLOAT;
-  uvAttribute.offset = static_cast<uint32_t>(offsetof(VkVertex, uv));
 
   VkVertexInputAttributeDescription jointsAttribute{};
   jointsAttribute.binding = 0;
-  jointsAttribute.location = 4;
+  jointsAttribute.location = 3;
   jointsAttribute.format = VK_FORMAT_R32G32B32A32_UINT;
   jointsAttribute.offset =
       static_cast<uint32_t>(offsetof(VkVertex, boneNum));
 
   VkVertexInputAttributeDescription weightAttribute{};
   weightAttribute.binding = 0;
-  weightAttribute.location = 5;
+  weightAttribute.location = 4;
   weightAttribute.format = VK_FORMAT_R32G32B32A32_SFLOAT;
   weightAttribute.offset =
       static_cast<uint32_t>(offsetof(VkVertex, boneWeights));
@@ -88,7 +82,6 @@ bool SkinningPipeline::init(const VkRenderData& renderData,
   attributes.emplace_back(positionAttribute);
   attributes.emplace_back(colorAttribute);
   attributes.emplace_back(normalAttribute);
-  attributes.emplace_back(uvAttribute);
   attributes.emplace_back(jointsAttribute);
   attributes.emplace_back(weightAttribute);
 

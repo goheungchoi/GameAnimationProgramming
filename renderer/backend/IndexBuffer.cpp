@@ -5,8 +5,8 @@
 #include "CommandBuffer.h"
 #include "Logger.h"
 
-bool IndexBuffer::init(const VkRenderData& renderData, VkIndexBufferData* bufferData,
-                       size_t bufferSize) {
+bool IndexBuffer::init(const VkRenderData& renderData,
+                       VkIndexBufferData* bufferData, size_t bufferSize) {
   /* index buffer */
   VkBufferCreateInfo bufferInfo{};
   bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -53,7 +53,8 @@ bool IndexBuffer::init(const VkRenderData& renderData, VkIndexBufferData* buffer
 }
 
 bool IndexBuffer::uploadData(const VkRenderData& renderData,
-                             VkIndexBufferData* bufferData, const VkMesh& vertexData) {
+                             VkIndexBufferData* bufferData,
+                             const VkMesh& vertexData) {
   /* buffer too small, resize */
   unsigned int indexDataSize = vertexData.indices.size() * sizeof(uint32_t);
   if (bufferData->size < indexDataSize) {
@@ -72,8 +73,8 @@ bool IndexBuffer::uploadData(const VkRenderData& renderData,
 
   /* copy data to staging buffer */
   void* data;
-  VkResult result = vmaMapMemory(renderData.rdAllocator,
-                                 bufferData->stagingAlloc, &data);
+  VkResult result =
+      vmaMapMemory(renderData.rdAllocator, bufferData->stagingAlloc, &data);
   if (result != VK_SUCCESS) {
     Logger::log(1, "%s error: could not map index buffer memory (error: %i)\n",
                 __FUNCTION__, result);
@@ -100,8 +101,8 @@ bool IndexBuffer::uploadData(const VkRenderData& renderData,
   stagingBufferCopy.size = bufferData->size;
 
   /* trigger data transfer via command buffer */
-  VkCommandBuffer commandBuffer =
-      CommandBuffer::createTransientBuffer(renderData);
+  VkCommandBuffer commandBuffer = CommandBuffer::createTransientBuffer(
+      renderData, renderData.rdCommandPool);
 
   vkCmdCopyBuffer(commandBuffer, bufferData->staging, bufferData->buffer, 1,
                   &stagingBufferCopy);
@@ -109,7 +110,9 @@ bool IndexBuffer::uploadData(const VkRenderData& renderData,
                        VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, 0, 0, nullptr, 1,
                        &indexBufferBarrier, 0, nullptr);
 
-  if (!CommandBuffer::submitTransientBuffer(renderData, commandBuffer)) {
+  if (!CommandBuffer::submitTransientBuffer(
+          renderData, renderData.rdCommandPool, commandBuffer,
+          renderData.rdGraphicsQueue)) {
     return false;
   }
 

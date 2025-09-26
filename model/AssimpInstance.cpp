@@ -5,7 +5,10 @@
 
 #include "Logger.h"
 
-AssimpInstance::AssimpInstance(std::shared_ptr<AssimpModel> model, glm::vec3 position, glm::vec3 rotation, float modelScale) : mAssimpModel(model) {
+AssimpInstance::AssimpInstance(std::shared_ptr<AssimpModel> model,
+                               glm::vec3 position, glm::vec3 rotation,
+                               float modelScale)
+    : mAssimpModel(model) {
   if (!model) {
     Logger::log(1, "%s error: invalid model given\n", __FUNCTION__);
     return;
@@ -15,8 +18,14 @@ AssimpInstance::AssimpInstance(std::shared_ptr<AssimpModel> model, glm::vec3 pos
   mInstanceSettings.scale = modelScale;
 
   /* we need one 4x4 matrix for every bone */
-  mBoneMatrices.resize(mAssimpModel->getBoneList().size());
-  std::fill(mBoneMatrices.begin(), mBoneMatrices.end(), glm::mat4(1.0f));
+  /*mBoneMatrices.resize(mAssimpModel->getBoneList().size());
+  std::fill(mBoneMatrices.begin(), mBoneMatrices.end(), glm::mat4(1.0f));*/
+
+  // avoid resizing during fill
+  mNodeTransformData.resize(mAssimpModel->getBoneList().size());
+
+	// save model root matrix
+  mModelRootMatrix = mAssimpModel->getRootTranformationMatrix();
 
   updateModelRootMatrix();
 }
@@ -41,6 +50,9 @@ void AssimpInstance::updateModelRootMatrix() {
   mLocalTranslationMatrix = glm::translate(glm::mat4(1.0f), mInstanceSettings.worldPosition);
 
   mLocalTransformMatrix = mLocalTranslationMatrix * mLocalRotationMatrix * mLocalSwapAxisMatrix * mLocalScaleMatrix;
+
+	/* Update instance root transform matrix */
+	mInstanceRootMatrix = mLocalTransformMatrix * mModelRootMatrix;
 }
 
 void AssimpInstance::updateAnimation(float deltaTime) {
@@ -51,27 +63,36 @@ void AssimpInstance::updateAnimation(float deltaTime) {
 
   /* animate clip via channels */
   for (const auto& channel : animChannels) {
-    std::string nodeNameToAnimate = channel->getTargetNodeName();
-    std::shared_ptr<AssimpNode> node = mAssimpModel->getNodeMap().at(nodeNameToAnimate);
+    NodeTransformData nodeTransform;
+    nodeTransform.translation =
+        channel->getTranslation(mInstanceSettings.animPlayTimePos);
+    nodeTransform.rotation =
+        channel->getRotation(mInstanceSettings.animPlayTimePos);
+    nodeTransform.scale =
+        channel->getScaling(mInstanceSettings.animPlayTimePos);
 
-    node->setRotation(channel->getRotation(mInstanceSettings.animPlayTimePos));
-    node->setScaling(channel->getScaling(mInstanceSettings.animPlayTimePos));
-    node->setTranslation(channel->getTranslation(mInstanceSettings.animPlayTimePos));
-  }
-
-  /* set root node transform matrix, enabling instance movement */
-  mAssimpModel->getRootNode()->setRootTransformMatrix(mLocalTransformMatrix * mAssimpModel->getRootTranformationMatrix());
-
-  /* flat node map contains nodes in parent->child order, starting with root node, update matrices down the skeleton tree */
-  mBoneMatrices.clear();
-  for (auto& node : mAssimpModel->getNodeList()) {
-    std::string nodeName = node->getNodeName();
-
-    node->updateTRSMatrix();
-    if (mAssimpModel->getBoneOffsetMatrices().count(nodeName) > 0) {
-      mBoneMatrices.emplace_back(mAssimpModel->getNodeMap().at(nodeName)->getTRSMatrix() * mAssimpModel->getBoneOffsetMatrices().at(nodeName));
+    int boneId = channel->getBoneId();
+    if (boneId >= 0) {
+      mNodeTransformData.at(boneId) = nodeTransform;
     }
   }
+
+  ///* set root node transform matrix, enabling instance movement */
+  //mAssimpModel->getRootNode()->setRootTransformMatrix(mLocalTransformMatrix * mAssimpModel->getRootTranformationMatrix());
+
+  ///* flat node map contains nodes in parent->child order, starting with root node, update matrices down the skeleton tree */
+  //mBoneMatrices.clear();
+  //for (auto& node : mAssimpModel->getNodeList()) {
+  //  std::string nodeName = node->getNodeName();
+
+  //  node->updateTRSMatrix();
+  //  if (mAssimpModel->getBoneOffsetMatrices().count(nodeName) > 0) {
+  //    mBoneMatrices.emplace_back(mAssimpModel->getNodeMap().at(nodeName)->getTRSMatrix() * mAssimpModel->getBoneOffsetMatrices().at(nodeName));
+  //  }
+  //}
+
+	/* set root node transform matrix, enabling instance movement */
+  updateModelRootMatrix();
 }
 
 std::shared_ptr<AssimpModel> AssimpInstance::getModel() {
@@ -131,6 +152,11 @@ InstanceSettings AssimpInstance::getInstanceSettings() {
   return mInstanceSettings;
 }
 
-std::vector<glm::mat4> AssimpInstance::getBoneMatrices() {
-  return mBoneMatrices;
+//std::vector<glm::mat4> AssimpInstance::getBoneMatrices() {
+//  return mBoneMatrices;
+//}
+
+const std::vector<NodeTransformData>& AssimpInstance::getNodeTransformData()
+    const {
+  return mNodeTransformData;
 }

@@ -1,18 +1,37 @@
 #include "AssimpAnimClip.h"
 #include "Logger.h"
 
-void AssimpAnimClip::addChannels(aiAnimation* animation) {
+void AssimpAnimClip::addChannels(
+    aiAnimation* animation,
+    const std::vector<std::shared_ptr<AssimpBone>>& boneList) {
   mClipName = animation->mName.C_Str();
   mClipDuration = animation->mDuration;
   mClipTicksPerSecond = animation->mTicksPerSecond;
 
-  Logger::log(1, "%s: - loading clip %s, duration %lf (%lf ticks per second)\n", __FUNCTION__, mClipName.c_str(), mClipDuration, mClipTicksPerSecond);
+  Logger::log(1, "%s: - loading clip %s, duration %lf (%lf ticks per second)\n",
+              __FUNCTION__, mClipName.c_str(), mClipDuration,
+              mClipTicksPerSecond);
 
   for (unsigned int i = 0; i < animation->mNumChannels; ++i) {
-    std::shared_ptr<AssimpAnimChannel> channel = std::make_shared<AssimpAnimChannel>();
+    std::shared_ptr<AssimpAnimChannel> channel =
+        std::make_shared<AssimpAnimChannel>();
 
-    Logger::log(1, "%s: -- loading channel %i for node '%s'\n", __FUNCTION__, i, animation->mChannels[i]->mNodeName.C_Str());
+    Logger::log(1, "%s: -- loading channel %i for node '%s'\n", __FUNCTION__, i,
+                animation->mChannels[i]->mNodeName.C_Str());
     channel->loadChannelData(animation->mChannels[i]);
+
+		/* find the corresponding bone and its index id */
+    std::string targetNodeName = channel->getTargetNodeName();
+    const auto bonePos =
+        std::find_if(boneList.begin(), boneList.end(),
+                     [targetNodeName](const std::shared_ptr<AssimpBone>& bone) {
+                       return bone->getBoneName() == targetNodeName;
+                     });
+
+    if (bonePos != boneList.end()) {
+      channel->setBoneId((*bonePos)->getBoneId());
+    }
+
     mAnimChannels.emplace_back(channel);
   }
 }

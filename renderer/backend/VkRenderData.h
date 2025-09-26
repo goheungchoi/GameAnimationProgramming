@@ -15,11 +15,16 @@
 
 #include <assimp/material.h>
 
+struct NodeTransformData {
+  glm::vec4 translation{0.f};
+	glm::vec4 scale{1.f};
+  glm::vec4 rotation{1.f, 0.f, 0.f, 0.f};
+};
+
 struct VkVertex {
-	glm::vec3 position{};
+	glm::vec4 position{};
 	glm::vec4 color{1.f};
-	glm::vec3 normal{};
-	glm::vec2 uv{};
+	glm::vec4 normal{};
 	glm::uvec4 boneNum{};
 	glm::vec4 boneWeights{};
 };
@@ -79,70 +84,94 @@ struct VkShaderStorageBufferData {
 };
 
 struct VkPushConstants {
-	int pkModelStride;
-	int pkWorldPosMatIndexOffset;
+  uint32_t pkModelStride;
+  uint32_t pkWorldPosOffset;
+  uint32_t pkSkinMatOffset;
+};
+
+struct VkComputePushConstants {
+  uint32_t pkModelOffset;
 };
 
 struct VkRenderData {
-	GLFWwindow* rdWindow = nullptr;
+  GLFWwindow* rdWindow = nullptr;
 
-	int rdWidth = 0;
-	int rdHeight = 0;
+  int rdWidth = 0;
+  int rdHeight = 0;
 
-	size_t rdTriangleCount = 0;
-	size_t rdMatricesSize = 0;
+  size_t rdTriangleCount = 0;
+  size_t rdMatricesSize = 0;
 
-	int rdFOV = 60;
+  int rdFOV = 60;
 
-	float rdFrameTime = 0.0f;
-	float rdUpdateAnimationTime = 0.0f;
-	float rdUploadToSSBOTime = 0.0f;
-	float rdUploadToVBOTime = 0.0f;
-	float rdUploadToUBOTime = 0.0f;
-	float rdUIGenerateTime = 0.0f;
-	float rdUIDrawTime = 0.0f;
+  float rdFrameTime = 0.0f;
+  float rdUpdateAnimationTime = 0.0f;
+  float rdUploadToSSBOTime = 0.0f;
+  float rdUploadToVBOTime = 0.0f;
+  float rdUploadToUBOTime = 0.0f;
+  float rdUIGenerateTime = 0.0f;
+  float rdUIDrawTime = 0.0f;
 
-	/* Vulkan specific stuff */
-	VmaAllocator rdAllocator = nullptr;
+  /* Vulkan specific stuff */
+  VmaAllocator rdAllocator = nullptr;
 
-	vkb::Instance rdVkbInstance{};
-	vkb::PhysicalDevice rdVkbPhysicalDevice{};
-	vkb::Device rdVkbDevice{};
-	vkb::Swapchain rdVkbSwapchain{};
+  vkb::Instance rdVkbInstance{};
+  vkb::PhysicalDevice rdVkbPhysicalDevice{};
+  vkb::Device rdVkbDevice{};
+  vkb::Swapchain rdVkbSwapchain{};
 
-	std::vector<VkImage> rdSwapchainImages{};
-	std::vector<VkImageView> rdSwapchainImageViews{};
-	std::vector<VkFramebuffer> rdFramebuffers{};
+  std::vector<VkImage> rdSwapchainImages{};
+  std::vector<VkImageView> rdSwapchainImageViews{};
+  std::vector<VkFramebuffer> rdFramebuffers{};
 
-	VkQueue rdGraphicsQueue = VK_NULL_HANDLE;
-	VkQueue rdPresentQueue = VK_NULL_HANDLE;
+  VkQueue rdGraphicsQueue = VK_NULL_HANDLE;
+  VkQueue rdPresentQueue = VK_NULL_HANDLE;
+  VkQueue rdComputeQueue = VK_NULL_HANDLE;
 
-	VkImage rdDepthImage = VK_NULL_HANDLE;
-	VkImageView rdDepthImageView = VK_NULL_HANDLE;
-	VkFormat rdDepthFormat = VK_FORMAT_UNDEFINED;
-	VmaAllocation rdDepthImageAlloc = VK_NULL_HANDLE;
+  VkImage rdDepthImage = VK_NULL_HANDLE;
+  VkImageView rdDepthImageView = VK_NULL_HANDLE;
+  VkFormat rdDepthFormat = VK_FORMAT_UNDEFINED;
+  VmaAllocation rdDepthImageAlloc = VK_NULL_HANDLE;
 
-	VkRenderPass rdRenderpass = VK_NULL_HANDLE;
+  VkRenderPass rdRenderpass = VK_NULL_HANDLE;
 
-	VkPipelineLayout rdAssimpPipelineLayout = VK_NULL_HANDLE;
-	VkPipelineLayout rdAssimpSkinningPipelineLayout = VK_NULL_HANDLE;
+  VkPipelineLayout rdAssimpPipelineLayout = VK_NULL_HANDLE;
+  VkPipelineLayout rdAssimpSkinningPipelineLayout = VK_NULL_HANDLE;
+  VkPipelineLayout rdAssimpComputeTransformaPipelineLayout = VK_NULL_HANDLE;
+  VkPipelineLayout rdAssimpComputeMatrixMultPipelineLayout = VK_NULL_HANDLE;
 
-	VkPipeline rdAssimpPipeline = VK_NULL_HANDLE;
-	VkPipeline rdAssimpSkinningPipeline = VK_NULL_HANDLE;
+  VkPipeline rdAssimpPipeline = VK_NULL_HANDLE;
+  VkPipeline rdAssimpSkinningPipeline = VK_NULL_HANDLE;
+  VkPipeline rdAssimpComputeTransformPipeline = VK_NULL_HANDLE;
+  VkPipeline rdAssimpComputeMatrixMultPipeline = VK_NULL_HANDLE;
 
-	VkCommandPool rdCommandPool = VK_NULL_HANDLE;
-	VkCommandBuffer rdCommandBuffer = VK_NULL_HANDLE;
+  VkCommandPool rdCommandPool = VK_NULL_HANDLE;
+  VkCommandPool rdComputeCommandPool = VK_NULL_HANDLE;
+  VkCommandBuffer rdCommandBuffer = VK_NULL_HANDLE;
+  VkCommandBuffer rdComputeCommandBuffer = VK_NULL_HANDLE;
 
-	VkSemaphore rdPresentSemaphore = VK_NULL_HANDLE;
-	VkSemaphore rdRenderSemaphore = VK_NULL_HANDLE;
-	VkFence rdRenderFence = VK_NULL_HANDLE;
+  VkSemaphore rdPresentSemaphore = VK_NULL_HANDLE;
+  VkSemaphore rdRenderSemaphore = VK_NULL_HANDLE;
+  VkSemaphore rdGraphicSemaphore = VK_NULL_HANDLE;
+  VkSemaphore rdComputeSemaphore = VK_NULL_HANDLE;
+  VkFence rdRenderFence = VK_NULL_HANDLE;
+  VkFence rdComputeFence = VK_NULL_HANDLE;
 
-	VkDescriptorSetLayout rdAssimpDescriptorLayout = VK_NULL_HANDLE;
-	VkDescriptorSetLayout rdAssimpTextureDescriptorLayout = VK_NULL_HANDLE;
+  VkDescriptorSetLayout rdAssimpDescriptorLayout = VK_NULL_HANDLE;
+  VkDescriptorSetLayout rdAssimpSkinningDescriptorLayout = VK_NULL_HANDLE;
+  VkDescriptorSetLayout rdAssimpTextureDescriptorLayout = VK_NULL_HANDLE;
+  VkDescriptorSetLayout rdAssimpComputeTransformDescriptorLayout =
+      VK_NULL_HANDLE;
+  VkDescriptorSetLayout rdAssimpComputeMatrixMultDescriptorLayout =
+      VK_NULL_HANDLE;
+  VkDescriptorSetLayout rdAssimpComputeMatrixMultPerModelDescriptorLayout =
+      VK_NULL_HANDLE;
 
-	VkDescriptorSet rdAssimpDescriptorSet = VK_NULL_HANDLE;
-	VkDescriptorSet rdAssimpSkinningDescriptorSet = VK_NULL_HANDLE;
+  VkDescriptorSet rdAssimpDescriptorSet = VK_NULL_HANDLE;
+  VkDescriptorSet rdAssimpSkinningDescriptorSet = VK_NULL_HANDLE;
+  VkDescriptorSet rdAssimpComputeTransformDescriptorSet = VK_NULL_HANDLE;
+  VkDescriptorSet rdAssimpComputeMatrixMultDescriptorSet = VK_NULL_HANDLE;
 
-	VkDescriptorPool rdDescriptorPool = VK_NULL_HANDLE;
-	VkDescriptorPool rdImguiDescriptorPool = VK_NULL_HANDLE;
+  VkDescriptorPool rdDescriptorPool = VK_NULL_HANDLE;
+  VkDescriptorPool rdImguiDescriptorPool = VK_NULL_HANDLE;
 };

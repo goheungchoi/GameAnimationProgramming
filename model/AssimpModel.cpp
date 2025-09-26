@@ -7,6 +7,8 @@
 #include <assimp/Importer.hpp>
 #include <filesystem>
 
+#include "ShaderStorageBuffer.h"
+
 #include "Logger.h"
 #include "Tools.h"
 
@@ -123,19 +125,37 @@ bool AssimpModel::loadModel(VkRenderData& renderData,
     }
   }
 
-  for (const auto& node : mNodeList) {
-    std::string nodeName = node->getNodeName();
+	std::vector<glm::mat4> boneOffsetMatricesList{};
+  std::vector<int32_t> boneParentIndexList{};
+
+  for (const auto& bone : mBoneList) {
+    boneOffsetMatricesList.emplace_back(bone->getOffsetMatrix());
+
+    std::string parentNodeName =
+        mNodeMap.at(bone->getBoneName())->getParentNodeName();
     const auto boneIter =
         std::find_if(mBoneList.begin(), mBoneList.end(),
-                     [nodeName](std::shared_ptr<AssimpBone>& bone) {
-                       return bone->getBoneName() == nodeName;
+                     [parentNodeName](std::shared_ptr<AssimpBone>& bone) {
+                       return bone->getBoneName() == parentNodeName;
                      });
-    if (boneIter != mBoneList.end()) {
-      mBoneOffsetMatrices.insert(
-          {nodeName, mBoneList.at(std::distance(mBoneList.begin(), boneIter))
-                         ->getOffsetMatrix()});
+    if (boneIter == mBoneList.end()) {
+      boneParentIndexList.emplace_back(-1);  // root node gets a -1 to identify
+    } else {
+      boneParentIndexList.emplace_back(
+          std::distance(mBoneList.begin(), boneIter));
     }
   }
+
+  Logger::log(1, "%s: -- bone parents --\n", __FUNCTION__);
+  for (unsigned int i = 0; i < mBoneList.size(); ++i) {
+    Logger::log(
+        1, "%s: bone %i (%s) has parent %i (%s)\n", __FUNCTION__, i,
+        mBoneList.at(i)->getBoneName().c_str(), boneParentIndexList.at(i),
+        boneParentIndexList.at(i) < 0
+            ? "invalid"
+            : mBoneList.at(boneParentIndexList.at(i))->getBoneName().c_str());
+  }
+  Logger::log(1, "%s: -- bone parents --\n", __FUNCTION__);
 
   /* create vertex buffers for the meshes */
   for (const auto& mesh : mModelMeshes) {
@@ -152,6 +172,19 @@ bool AssimpModel::loadModel(VkRenderData& renderData,
     mIndexBuffers.emplace_back(indexBuffer);
   }
 
+	/* init all SSBOs */
+  ShaderStorageBuffer::init(renderData, &mShaderBoneMatrixOffsetBuffer);
+  ShaderStorageBuffer::init(renderData, &mShaderBoneParentBuffer);
+
+  ShaderStorageBuffer::uploadSSBOData(
+      renderData, &mShaderBoneMatrixOffsetBuffer, boneOffsetMatricesList);
+  ShaderStorageBuffer::uploadSSBOData(
+      renderData, &mShaderBoneParentBuffer, (char*)boneParentIndexList.data(),
+      boneParentIndexList.size() * sizeof(int32_t));
+
+  /* create descriptor set for per-model data */
+  createDescriptorSet(renderData);
+
   /* animations */
   unsigned int numAnims = scene->mNumAnimations;
   for (unsigned int i = 0; i < numAnims; ++i) {
@@ -165,7 +198,7 @@ bool AssimpModel::loadModel(VkRenderData& renderData,
 
     std::shared_ptr<AssimpAnimClip> animClip =
         std::make_shared<AssimpAnimClip>();
-    animClip->addChannels(animation);
+    animClip->addChannels(animation, mBoneList);
     if (animClip->getClipName().empty()) {
       animClip->setClipName(std::to_string(i));
     }
@@ -246,6 +279,68 @@ void AssimpModel::createNodeList(
     std::shared_ptr<AssimpNode> node, std::shared_ptr<AssimpNode> newNode,
     std::vector<std::shared_ptr<AssimpNode>>& list) {
 	// TODO:
+}
+
+bool AssimpModel::createDescriptorSet(const VkRenderData& renderData) {
+  /* matrix multiplication, per-model data */
+  VkDescriptorSetAllocateInfo computeMatrixMultPerModelDescriptorAllocateInfo{};
+  computeMatrixMultPerModelDescriptorAllocateInfo.sType =
+      VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+  computeMatrixMultPerModelDescriptorAllocateInfo.descriptorPool =
+      renderData.rdDescriptorPool;
+  computeMatrixMultPerModelDescriptorAllocateInfo.descriptorSetCount = 1;
+  computeMatrixMultPerModelDescriptorAllocateInfo.pSetLayouts =
+      &renderData.rdAssimpComputeMatrixMultPerModelDescriptorLayout;
+
+  VkResult result =
+      vkAllocateDescriptorSets(renderData.rdVkbDevice.device,
+                               &computeMatrixMultPerModelDescriptorAllocateInfo,
+                               &mMatrixMultPerModelDescriptorSet);
+  if (result != VK_SUCCESS) {
+    Logger::log(1,
+                "%s error: could not allocate Assimp Matrix Mult Compute "
+                "per-model descriptor set (error: %i)\n",
+                __FUNCTION__, result);
+    return false;
+  }
+
+  VkDescriptorBufferInfo parentNodeInfo{};
+  parentNodeInfo.buffer = mShaderBoneParentBuffer.buffer;
+  parentNodeInfo.offset = 0;
+  parentNodeInfo.range = VK_WHOLE_SIZE;
+
+  VkDescriptorBufferInfo boneOffsetInfo{};
+  boneOffsetInfo.buffer = mShaderBoneMatrixOffsetBuffer.buffer;
+  boneOffsetInfo.offset = 0;
+  boneOffsetInfo.range = VK_WHOLE_SIZE;
+
+  VkWriteDescriptorSet parentNodeWriteDescriptorSet{};
+  parentNodeWriteDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+  parentNodeWriteDescriptorSet.descriptorType =
+      VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+  parentNodeWriteDescriptorSet.dstSet = mMatrixMultPerModelDescriptorSet;
+  parentNodeWriteDescriptorSet.dstBinding = 0;
+  parentNodeWriteDescriptorSet.descriptorCount = 1;
+  parentNodeWriteDescriptorSet.pBufferInfo = &parentNodeInfo;
+
+  VkWriteDescriptorSet boneOffsetWriteDescriptorSet{};
+  boneOffsetWriteDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+  boneOffsetWriteDescriptorSet.descriptorType =
+      VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+  boneOffsetWriteDescriptorSet.dstSet = mMatrixMultPerModelDescriptorSet;
+  boneOffsetWriteDescriptorSet.dstBinding = 1;
+  boneOffsetWriteDescriptorSet.descriptorCount = 1;
+  boneOffsetWriteDescriptorSet.pBufferInfo = &boneOffsetInfo;
+
+  std::vector<VkWriteDescriptorSet> matrixMultWriteDescriptorSets = {
+      parentNodeWriteDescriptorSet, boneOffsetWriteDescriptorSet};
+
+  vkUpdateDescriptorSets(
+      renderData.rdVkbDevice.device,
+      static_cast<uint32_t>(matrixMultWriteDescriptorSets.size()),
+      matrixMultWriteDescriptorSets.data(), 0, nullptr);
+
+  return true;
 }
 
 glm::mat4 AssimpModel::getRootTranformationMatrix() {
@@ -353,12 +448,19 @@ void AssimpModel::drawInstanced(VkRenderData& renderData,
 unsigned int AssimpModel::getTriangleCount() { return mTriangleCount; }
 
 void AssimpModel::cleanup(VkRenderData& renderData) {
+  vkFreeDescriptorSets(renderData.rdVkbDevice.device,
+                       renderData.rdDescriptorPool, 1,
+                       &mMatrixMultPerModelDescriptorSet);
+
   for (auto& buffer : mVertexBuffers) {
     VertexBuffer::cleanup(renderData, &buffer);
   }
   for (auto& buffer : mIndexBuffers) {
     IndexBuffer::cleanup(renderData, &buffer);
   }
+
+  ShaderStorageBuffer::cleanup(renderData, &mShaderBoneMatrixOffsetBuffer);
+  ShaderStorageBuffer::cleanup(renderData, &mShaderBoneParentBuffer);
 
   for (auto& [_, tex] : mTextures) {
     Texture::cleanup(renderData, &tex);
@@ -385,9 +487,16 @@ const std::vector<std::shared_ptr<AssimpBone>>& AssimpModel::getBoneList() {
   return mBoneList;
 }
 
-const std::unordered_map<std::string, glm::mat4>&
-AssimpModel::getBoneOffsetMatrices() {
-  return mBoneOffsetMatrices;
+VkShaderStorageBufferData& AssimpModel::getBoneMatrixOffsetBuffer() {
+  return mShaderBoneMatrixOffsetBuffer;
+}
+
+VkShaderStorageBufferData& AssimpModel::getBoneParentBuffer() {
+  return mShaderBoneParentBuffer;
+}
+
+VkDescriptorSet& AssimpModel::getMatrixMultDescriptorSet() {
+  return mMatrixMultPerModelDescriptorSet;
 }
 
 const std::vector<std::shared_ptr<AssimpAnimClip>>&
@@ -396,7 +505,3 @@ AssimpModel::getAnimClips() {
 }
 
 bool AssimpModel::hasAnimations() { return !mAnimClips.empty(); }
-
-const std::shared_ptr<AssimpNode> AssimpModel::getRootNode() {
-  return mRootNode;
-}

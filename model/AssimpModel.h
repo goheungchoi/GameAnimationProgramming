@@ -37,9 +37,11 @@ class AssimpModel {
   getNodeMap();
 
   const std::vector<std::shared_ptr<AssimpBone>>& getBoneList();
-  const std::unordered_map<std::string, glm::mat4>& getBoneOffsetMatrices();
+  
+	VkShaderStorageBufferData& getBoneMatrixOffsetBuffer();
+  VkShaderStorageBufferData& getBoneParentBuffer();
 
-  const std::shared_ptr<AssimpNode> getRootNode();
+  VkDescriptorSet& getMatrixMultDescriptorSet();
 
   void cleanup(VkRenderData& renderData);
 
@@ -50,6 +52,8 @@ class AssimpModel {
   void createNodeList(std::shared_ptr<AssimpNode> node,
                       std::shared_ptr<AssimpNode> newNode,
                       std::vector<std::shared_ptr<AssimpNode>>& list);
+
+	bool createDescriptorSet(const VkRenderData& renderData);
 
   unsigned int mTriangleCount = 0;
   unsigned int mVertexCount = 0;
@@ -62,13 +66,15 @@ class AssimpModel {
   std::vector<std::shared_ptr<AssimpNode>> mNodeList{};
 
   std::vector<std::shared_ptr<AssimpBone>> mBoneList;
-  std::unordered_map<std::string, glm::mat4> mBoneOffsetMatrices{};
 
   std::vector<std::shared_ptr<AssimpAnimClip>> mAnimClips{};
 
   std::vector<VkMesh> mModelMeshes{};
   std::vector<VkVertexBufferData> mVertexBuffers{};
   std::vector<VkIndexBufferData> mIndexBuffers{};
+
+	VkShaderStorageBufferData mShaderBoneParentBuffer{};
+  VkShaderStorageBufferData mShaderBoneMatrixOffsetBuffer{};
 
   // map textures to external or internal texture names
   std::unordered_map<std::string, VkTextureData> mTextures{};
@@ -79,4 +85,6 @@ class AssimpModel {
 
   std::string mModelFilenamePath;
   std::string mModelFilename;
+
+	VkDescriptorSet mMatrixMultPerModelDescriptorSet = VK_NULL_HANDLE;
 };

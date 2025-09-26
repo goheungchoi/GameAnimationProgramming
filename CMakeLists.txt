@@ -205,6 +205,7 @@ include_directories(${GLFW3_INCLUDE_DIR} ${GLM_INCLUDE_DIRS} ${ASSIMP_INCLUDE_DI
 file(GLOB GLSL_SOURCE_FILES
   shaders/*.frag
   shaders/*.vert
+  shaders/*.comp
 )
 
 if(Vulkan_GLSLC_EXECUTABLE)

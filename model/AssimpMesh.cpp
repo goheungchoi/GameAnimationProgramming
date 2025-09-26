@@ -99,14 +99,15 @@ bool AssimpMesh::processMesh(VkRenderData &renderData, aiMesh* mesh, const aiSce
       vertex.normal.y = mesh->mNormals[i].y;
       vertex.normal.z = mesh->mNormals[i].z;
     } else {
-      vertex.normal = glm::vec3(0.0f);
+      vertex.normal = glm::vec4(0.0f);
     }
 
     if (mesh->HasTextureCoords(0)) {
-      vertex.uv.x = mesh->mTextureCoords[0][i].x;
-      vertex.uv.y = mesh->mTextureCoords[0][i].y;
+      vertex.position.w = mesh->mTextureCoords[0][i].x;
+      vertex.normal.w = mesh->mTextureCoords[0][i].y;
     } else {
-      vertex.uv = glm::vec2(0.0f);
+			vertex.position.w = 0.f;
+			vertex.normal.w = 0.f;
     }
 
     mMesh.vertices.emplace_back(vertex);

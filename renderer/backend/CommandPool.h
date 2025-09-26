@@ -5,7 +5,8 @@
 #include "VkRenderData.h"
 
 class CommandPool {
-public:
-	static bool init(VkRenderData* renderData);
-	static void cleanup(VkRenderData* renderData);
+ public:
+  static bool init(const VkRenderData& renderData, vkb::QueueType queueType,
+                   VkCommandPool* pool);
+  static void cleanup(const VkRenderData& renderData, VkCommandPool pool);
 };

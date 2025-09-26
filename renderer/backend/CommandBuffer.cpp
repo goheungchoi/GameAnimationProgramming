@@ -4,11 +4,11 @@
 
 #include "Logger.h"
 
-bool CommandBuffer::init(const VkRenderData& renderData, VkCommandBuffer* cmd)
-{
+bool CommandBuffer::init(const VkRenderData& renderData, VkCommandPool pool,
+                         VkCommandBuffer* cmd) {
 	VkCommandBufferAllocateInfo allocInfo{};
 	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	allocInfo.commandPool = renderData.rdCommandPool;
+	allocInfo.commandPool = pool;
 	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 	allocInfo.commandBufferCount = 1;
 
@@ -65,12 +65,12 @@ bool CommandBuffer::end(VkCommandBuffer cmd)
 	return true;
 }
 
-VkCommandBuffer CommandBuffer::createTransientBuffer(const VkRenderData& renderData)
-{
+VkCommandBuffer CommandBuffer::createTransientBuffer(
+    const VkRenderData& renderData, VkCommandPool pool) {
 	Logger::log(2, "%s: creating a single shot command buffer\n", __FUNCTION__);
 	VkCommandBuffer cmd;
 
-	if (!init(renderData, &cmd)) {
+	if (!init(renderData, pool, &cmd)) {
 		Logger::log(1, "%s error: could not create command buffer\n", __FUNCTION__);
 		return VK_NULL_HANDLE;
 	}
@@ -95,8 +95,9 @@ VkCommandBuffer CommandBuffer::createTransientBuffer(const VkRenderData& renderD
 	return cmd;
 }
 
-bool CommandBuffer::submitTransientBuffer(const VkRenderData& renderData, VkCommandBuffer cmd)
-{
+bool CommandBuffer::submitTransientBuffer(const VkRenderData& renderData,
+                                          VkCommandPool pool,
+                                          VkCommandBuffer cmd, VkQueue queue) {
 	Logger::log(2, "%s: submitting single shot command buffer\n", __FUNCTION__);
 
 	VkResult result = vkEndCommandBuffer(cmd);
@@ -128,7 +129,7 @@ bool CommandBuffer::submitTransientBuffer(const VkRenderData& renderData, VkComm
 		return false;
 	}
 
-	result = vkQueueSubmit(renderData.rdGraphicsQueue, 1, &submitInfo, bufferFence);
+	result = vkQueueSubmit(queue, 1, &submitInfo, bufferFence);
 	if (result != VK_SUCCESS) {
 		Logger::log(1, "%s error: failed to submit buffer copy command buffer (error: %i)\n", __FUNCTION__, result);
 		return false;
@@ -141,13 +142,13 @@ bool CommandBuffer::submitTransientBuffer(const VkRenderData& renderData, VkComm
 	}
 
 	vkDestroyFence(renderData.rdVkbDevice.device, bufferFence, nullptr);
-	cleanup(renderData, &cmd);
+	cleanup(renderData, pool, &cmd);
 
 	Logger::log(2, "%s: single shot command buffer successfully submitted\n", __FUNCTION__);
 	return true;
 }
 
-void CommandBuffer::cleanup(const VkRenderData& renderData, VkCommandBuffer* cmd)
-{
-	vkFreeCommandBuffers(renderData.rdVkbDevice.device, renderData.rdCommandPool, 1, cmd);
+void CommandBuffer::cleanup(const VkRenderData& renderData, VkCommandPool pool,
+                            VkCommandBuffer* cmd) {
+	vkFreeCommandBuffers(renderData.rdVkbDevice.device, pool, 1, cmd);
 }

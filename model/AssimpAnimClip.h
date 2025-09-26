@@ -7,10 +7,12 @@
 #include <assimp/anim.h>
 
 #include "AssimpAnimChannel.h"
+#include "AssimpBone.h"
 
 class AssimpAnimClip {
   public:
-    void addChannels(aiAnimation* animation);
+  void addChannels(aiAnimation* animation,
+                   const std::vector<std::shared_ptr<AssimpBone>>& boneList);
     std::vector<std::shared_ptr<AssimpAnimChannel>> getChannels();
 
     std::string getClipName();

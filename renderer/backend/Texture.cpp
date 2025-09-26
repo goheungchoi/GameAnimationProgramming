@@ -196,8 +196,8 @@ bool Texture::uploadToGPU(const VkRenderData& renderData,
                           uint32_t height, bool generateMipmaps,
                           uint32_t mipmapLevels) {
   /* upload */
-  VkCommandBuffer uploadCommandBuffer =
-      CommandBuffer::createTransientBuffer(renderData);
+  VkCommandBuffer uploadCommandBuffer = CommandBuffer::createTransientBuffer(
+      renderData, renderData.rdCommandPool);
 
   VkImageCreateInfo imageInfo{};
   imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -379,8 +379,9 @@ bool Texture::uploadToGPU(const VkRenderData& renderData,
                          0, nullptr, 1, &lastBarrier);
   }
 
-  bool commandResult =
-      CommandBuffer::submitTransientBuffer(renderData, uploadCommandBuffer);
+  bool commandResult = CommandBuffer::submitTransientBuffer(
+      renderData, renderData.rdCommandPool, uploadCommandBuffer,
+      renderData.rdGraphicsQueue);
   vmaDestroyBuffer(renderData.rdAllocator, stagingData->buffer,
                    stagingData->alloc);
 

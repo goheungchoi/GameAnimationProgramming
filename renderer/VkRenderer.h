@@ -33,11 +33,6 @@ class VkRenderer {
   Timer mUIGenerateTimer{};
   Timer mUIDrawTimer{};
 
-	/* For non-animated models */
-  std::vector<glm::mat4> mWorldPosMatrices{};
-  /* For animated models */
-  std::vector<glm::mat4> mModelBoneMatrices{};
-
 	std::shared_ptr<Camera> mCamera{nullptr};
  public:
   VkRenderer(GLFWwindow* window);
@@ -70,10 +65,21 @@ class VkRenderer {
   UserInterface mUserInterface{};
 
   VkPushConstants mModelData{};
+  VkComputePushConstants mComputeModelData{};
   VkUniformBufferData mPerspectiveViewMatrixUBO{};
 
-	VkShaderStorageBufferData mWorldPosBuffer{};
-  VkShaderStorageBufferData mBoneMatrixBuffer{};
+	/* for animated and non-animated models */
+  std::vector<glm::mat4> mWorldPosMatrices{};
+  VkShaderStorageBufferData mShaderModelRootMatrixBuffer{};
+
+  /* for animated models */
+  VkShaderStorageBufferData mShaderBoneMatrixBuffer{};
+  
+	/* for compute shader */
+  bool mHasDedicatedComputeQueue = false;
+  std::vector<NodeTransformData> mNodeTransformData{};
+  VkShaderStorageBufferData mShaderTRSMatrixBuffer{};
+  VkShaderStorageBufferData mShaderNodeTransformBuffer{};
   
   /* Identity matrices */
   VkUploadMatrices mMatrices{glm::mat4(1.0f), glm::mat4(1.0f)};
@@ -108,4 +114,8 @@ class VkRenderer {
   bool recreateSwapchain();
 
 	void updateTriangleCount();
+
+	void updateComputeDescriptorSets();
+  void runComputeShaders(std::shared_ptr<AssimpModel> model,
+                          int numInstances, uint32_t modelOffset);
 };

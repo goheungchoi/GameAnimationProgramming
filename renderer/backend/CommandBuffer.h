@@ -5,16 +5,20 @@
 
 class CommandBuffer {
  public:
-  static bool init(const VkRenderData& renderData, VkCommandBuffer* cmd);
+  static bool init(const VkRenderData& renderData, VkCommandPool pool,
+                   VkCommandBuffer* cmd);
 
   static bool reset(VkCommandBuffer cmd, VkCommandBufferResetFlags flags = 0);
   static bool begin(VkCommandBuffer cmd, VkCommandBufferBeginInfo& beginInfo);
   static bool beginTransient(VkCommandBuffer cmd);
   static bool end(VkCommandBuffer cmd);
 
-  static VkCommandBuffer createTransientBuffer(const VkRenderData& renderData);
+  static VkCommandBuffer createTransientBuffer(const VkRenderData& renderData,
+                                               VkCommandPool pool);
   static bool submitTransientBuffer(const VkRenderData& renderData,
-                                    VkCommandBuffer cmd);
+                                    VkCommandPool pool, VkCommandBuffer cmd,
+                                    VkQueue queue);
 
-  static void cleanup(const VkRenderData& renderData, VkCommandBuffer* cmd);
+  static void cleanup(const VkRenderData& renderData, VkCommandPool pool,
+                      VkCommandBuffer* cmd);
 };

@@ -103,8 +103,8 @@ bool VertexBuffer::uploadData(const VkRenderData& renderData,
   stagingBufferCopy.size = vertexBufferData->size;
 
   /* trigger data transfer via command buffer */
-  VkCommandBuffer commandBuffer =
-      CommandBuffer::createTransientBuffer(renderData);
+  VkCommandBuffer commandBuffer = CommandBuffer::createTransientBuffer(
+      renderData, renderData.rdCommandPool);
 
   vkCmdCopyBuffer(commandBuffer, vertexBufferData->staging,
                   vertexBufferData->buffer, 1, &stagingBufferCopy);
@@ -112,7 +112,9 @@ bool VertexBuffer::uploadData(const VkRenderData& renderData,
                        VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, 0, 0, nullptr, 1,
                        &vertexBufferBarrier, 0, nullptr);
 
-  if (!CommandBuffer::submitTransientBuffer(renderData, commandBuffer)) {
+  if (!CommandBuffer::submitTransientBuffer(
+          renderData, renderData.rdCommandPool, commandBuffer,
+          renderData.rdGraphicsQueue)) {
     return false;
   }
 
@@ -169,8 +171,8 @@ bool VertexBuffer::uploadData(const VkRenderData& renderData,
   stagingBufferCopy.size = vertexBufferData->size;
 
   /* trigger data transfer via command buffer */
-  VkCommandBuffer commandBuffer =
-      CommandBuffer::createTransientBuffer(renderData);
+  VkCommandBuffer commandBuffer = CommandBuffer::createTransientBuffer(
+      renderData, renderData.rdCommandPool);
 
   vkCmdCopyBuffer(commandBuffer, vertexBufferData->staging,
                   vertexBufferData->buffer, 1, &stagingBufferCopy);
@@ -178,7 +180,9 @@ bool VertexBuffer::uploadData(const VkRenderData& renderData,
                        VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, 0, 0, nullptr, 1,
                        &vertexBufferBarrier, 0, nullptr);
 
-  if (!CommandBuffer::submitTransientBuffer(renderData, commandBuffer)) {
+  if (!CommandBuffer::submitTransientBuffer(
+          renderData, renderData.rdCommandPool, commandBuffer,
+          renderData.rdGraphicsQueue)) {
     return false;
   }
 
