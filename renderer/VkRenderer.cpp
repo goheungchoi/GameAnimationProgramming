@@ -364,17 +364,17 @@ bool VkRenderer::draw() {
     }
 
     uint32_t computeShaderModelOffset = 0;
-    for (const auto& modelType : mModelInstData.miAssimpInstancesPerModel) {
-      size_t numberOfInstances = modelType.second.size();
-      std::shared_ptr<AssimpModel> model = modelType.second.at(0)->getModel();
-      if (numberOfInstances > 0 && model->getTriangleCount() > 0) {
+    for (const auto& [_, instances] : mModelInstData.miAssimpInstancesPerModel) {
+      size_t numInstances = instances.size();
+      std::shared_ptr<AssimpModel> model = instances.at(0)->getModel();
+      if (numInstances > 0 && model->getTriangleCount() > 0) {
         /* compute shader for animated models only */
         if (model->hasAnimations() && !model->getBoneList().empty()) {
-          size_t numberOfBones = model->getBoneList().size();
+          size_t numBones = model->getBoneList().size();
 
-          runComputeShaders(model, numberOfInstances, computeShaderModelOffset);
+          runComputeShaders(model, numInstances, computeShaderModelOffset);
 
-          computeShaderModelOffset += numberOfInstances * numberOfBones;
+          computeShaderModelOffset += numInstances * numBones;
         }
       }
     }
@@ -1929,7 +1929,7 @@ void VkRenderer::updateComputeDescriptorSets() {
 
 void VkRenderer::runComputeShaders(std::shared_ptr<AssimpModel> model,
                                    int numInstances, uint32_t modelOffset) {
-  uint32_t numberOfBones = static_cast<uint32_t>(model->getBoneList().size());
+  uint32_t numBones = static_cast<uint32_t>(model->getBoneList().size());
 
   /* node transformation */
   vkCmdBindPipeline(mRenderData.rdComputeCommandBuffer,
@@ -1949,7 +1949,7 @@ void VkRenderer::runComputeShaders(std::shared_ptr<AssimpModel> model,
                      &mComputeModelData);
   mRenderData.rdUploadToUBOTime += mUploadToUBOTimer.stop();
 
-  vkCmdDispatch(mRenderData.rdComputeCommandBuffer, numberOfBones,
+  vkCmdDispatch(mRenderData.rdComputeCommandBuffer, numBones,
                 static_cast<uint32_t>(std::ceil(numInstances / 32.0f)), 1);
 
 	/* memroy barrier between the compute shaders
@@ -1974,7 +1974,7 @@ void VkRenderer::runComputeShaders(std::shared_ptr<AssimpModel> model,
                     VK_PIPELINE_BIND_POINT_COMPUTE,
                     mRenderData.rdAssimpComputeMatrixMultPipeline);
 
-  VkDescriptorSet& modelDescriptorSet = model->getMatrixMultDescriptorSet();
+  VkDescriptorSet modelDescriptorSet = model->getMatrixMultDescriptorSet();
   std::vector<VkDescriptorSet> computeSets = {
       mRenderData.rdAssimpComputeMatrixMultDescriptorSet, modelDescriptorSet};
   vkCmdBindDescriptorSets(
@@ -1991,7 +1991,7 @@ void VkRenderer::runComputeShaders(std::shared_ptr<AssimpModel> model,
                      &mComputeModelData);
   mRenderData.rdUploadToUBOTime += mUploadToUBOTimer.stop();
 
-  vkCmdDispatch(mRenderData.rdComputeCommandBuffer, numberOfBones,
+  vkCmdDispatch(mRenderData.rdComputeCommandBuffer, numBones,
                 static_cast<uint32_t>(std::ceil(numInstances / 32.0f)), 1);
 
   /* memroy barrier after compute shader
@@ -2010,6 +2010,4 @@ void VkRenderer::runComputeShaders(std::shared_ptr<AssimpModel> model,
                        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 1,
                        &boneMatrixBufferBarrier, 0, nullptr);
-
-
 }

@@ -56,7 +56,7 @@ class VkRenderer {
   void deleteInstance(std::shared_ptr<AssimpInstance> instance);
   void cloneInstance(std::shared_ptr<AssimpInstance> instance);
 
-	void updateAnimations(float deltaTime);
+  void updateAnimations(float deltaTime);
 
 	void cleanup();
 

@@ -61,6 +61,9 @@ void AssimpInstance::updateAnimation(float deltaTime) {
 
   std::vector<std::shared_ptr<AssimpAnimChannel>> animChannels = mAssimpModel->getAnimClips().at(mInstanceSettings.animClipNr)->getChannels();
 
+	std::fill(mNodeTransformData.begin(), mNodeTransformData.end(),
+            NodeTransformData{});
+
   /* animate clip via channels */
   for (const auto& channel : animChannels) {
     NodeTransformData nodeTransform;
@@ -104,7 +107,7 @@ glm::vec3 AssimpInstance::getWorldPosition() {
 }
 
 glm::mat4 AssimpInstance::getWorldTransformMatrix() {
-  return mLocalTransformMatrix;
+  return mInstanceRootMatrix;
 }
 
 void AssimpInstance::setTranslation(glm::vec3 position) {
