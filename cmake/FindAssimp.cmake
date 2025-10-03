@@ -36,7 +36,7 @@ endif()
 # Put user specified location at beginning of search
 if( ASSIMP_ROOT )
 	list( INSERT _assimp_HEADER_SEARCH_DIRS 0 "${ASSIMP_ROOT}/include" )
-	list( INSERT _assimp_LIB_SEARCH_DIRS 0 "${ASSIM_ROOT}/lib" )
+	list( INSERT _assimp_LIB_SEARCH_DIRS 0 "${ASSIMP_ROOT}/lib" )
 endif()
 
 # Search for the header
