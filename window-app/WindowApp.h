@@ -9,6 +9,8 @@
 class WindowApp {
   GLFWwindow* mWindow{nullptr};
 
+	std::unique_ptr<class InputManager> mInput;
+
   bool bMouseButtonRightPressed{false};
   int mCurrMouseXPos{0};
   int mCurrMouseYPos{0};
@@ -29,6 +31,16 @@ class WindowApp {
   void handleKeyEvents(int key, int scancode, int action, int mods);
   void handleMouseButtonEvents(int button, int action, int mods);
   void handleMousePositionEvents(double xPos, double yPos);
+
+	void moveForwardAction();
+	void moveBackwardAction();
+	void moveRightAction();
+	void moveLeftAction();
+	void moveUpAction();
+	void moveDownAction();
+
+	void increaseMoveSpeedAction();
+  void decreaseMoveSpeedAction();
 
   void update(float deltaTime);
 };

@@ -1,11 +1,11 @@
 #include "WindowApp.h"
 
-#include "VkRenderer.h"
-
-#include "Logger.h"
-#include "Camera.h"
-
 #include <imgui_impl_glfw.h>
+
+#include "Camera.h"
+#include "Input.h"
+#include "Logger.h"
+#include "VkRenderer.h"
 
 WindowApp::WindowApp() : mRenderer{nullptr}, mCamera{nullptr} {}
 
@@ -13,152 +13,161 @@ WindowApp::~WindowApp() {}
 
 bool WindowApp::init(unsigned int width, unsigned int height,
                      const std::string& title) {
-	if (!glfwInit()) {
-		Logger::log(1, "%s: glfwInit() error\n", __FUNCTION__);
-		return false;
-	}
+  if (!glfwInit()) {
+    Logger::log(1, "%s: glfwInit() error\n", __FUNCTION__);
+    return false;
+  }
 
-	if (!glfwVulkanSupported()) {
-		glfwTerminate();
-		Logger::log(1, "%s error: Vulkan is not supported\n", __FUNCTION__);
-		return false;
-	}
+  if (!glfwVulkanSupported()) {
+    glfwTerminate();
+    Logger::log(1, "%s error: Vulkan is not supported\n", __FUNCTION__);
+    return false;
+  }
 
-	/* Vulkan needs no context */
-	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+  /* Vulkan needs no context */
+  glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-	mWindow = glfwCreateWindow(width, height, title.c_str(), nullptr, nullptr);
-	if (!mWindow) {
-		glfwTerminate();
-		Logger::log(1, "%s error: Could not create window\n", __FUNCTION__);
-		return false;
-	}
-	
-	/* Set event callbacks */
-	glfwSetWindowUserPointer(mWindow, this);
-	glfwSetWindowSizeCallback(mWindow, [](GLFWwindow* win, int width, int height) {
-		auto app = static_cast<WindowApp*>(glfwGetWindowUserPointer(win));
-		app->handleResize(width, height);
-		}
-	);
+  mWindow = glfwCreateWindow(width, height, title.c_str(), nullptr, nullptr);
+  if (!mWindow) {
+    glfwTerminate();
+    Logger::log(1, "%s error: Could not create window\n", __FUNCTION__);
+    return false;
+  }
 
-	glfwSetKeyCallback(mWindow, [](GLFWwindow* win, int key, int scancode, int action, int mods) {
-		auto app = static_cast<WindowApp*>(glfwGetWindowUserPointer(win));
-		app->handleKeyEvents(key, scancode, action, mods);
-		}
-	);
+  /* Input settings */
+  mInput = std::make_unique<InputManager>();
+  mInput->bindKey(
+      Delegate<void()>::bind<WindowApp, &WindowApp::moveForwardAction>(this),
+      GLFW_KEY_W, KeyActionType::Down);
+  mInput->bindKey(
+      Delegate<void()>::bind<WindowApp, &WindowApp::moveBackwardAction>(this),
+      GLFW_KEY_S, KeyActionType::Down);
+  mInput->bindKey(
+      Delegate<void()>::bind<WindowApp, &WindowApp::moveRightAction>(this),
+      GLFW_KEY_D, KeyActionType::Down);
+  mInput->bindKey(
+      Delegate<void()>::bind<WindowApp, &WindowApp::moveLeftAction>(this),
+      GLFW_KEY_A, KeyActionType::Down);
+  mInput->bindKey(
+      Delegate<void()>::bind<WindowApp, &WindowApp::moveDownAction>(this),
+      GLFW_KEY_Q, KeyActionType::Down);
+  mInput->bindKey(
+      Delegate<void()>::bind<WindowApp, &WindowApp::moveUpAction>(this),
+      GLFW_KEY_E, KeyActionType::Down);
+  mInput->bindKey(
+      Delegate<void()>::bind<WindowApp, &WindowApp::decreaseMoveSpeedAction>(
+          this),
+      GLFW_KEY_MINUS, KeyActionType::Pressed);
+  mInput->bindKey(
+      Delegate<void()>::bind<WindowApp, &WindowApp::increaseMoveSpeedAction>(
+          this),
+      GLFW_KEY_EQUAL, KeyActionType::Pressed);
 
-	glfwSetMouseButtonCallback(mWindow, [](GLFWwindow* win, int button, int action, int mods) {
-		auto app = static_cast<WindowApp*>(glfwGetWindowUserPointer(win));
-		app->handleMouseButtonEvents(button, action, mods);
-		}
-	);
+  /* Set event callbacks */
+  glfwSetWindowUserPointer(mWindow, this);
+  glfwSetWindowSizeCallback(
+      mWindow, [](GLFWwindow* win, int width, int height) {
+        auto app = static_cast<WindowApp*>(glfwGetWindowUserPointer(win));
+        app->handleResize(width, height);
+      });
 
-	glfwSetCursorPosCallback(mWindow, [](GLFWwindow* win, double xpos, double ypos) {
-		auto app = static_cast<WindowApp*>(glfwGetWindowUserPointer(win));
-		app->handleMousePositionEvents(xpos, ypos);
-		}
-	);
+  glfwSetKeyCallback(mWindow, [](GLFWwindow* win, int key, int scancode,
+                                 int action, int mods) {
+    auto app = static_cast<WindowApp*>(glfwGetWindowUserPointer(win));
+    app->handleKeyEvents(key, scancode, action, mods);
+  });
 
-	/* Initialize renderer */ 
-	mRenderer = std::make_unique<VkRenderer>(mWindow);
-	if (!mRenderer->init(width, height)) {
-		glfwTerminate();
-		Logger::log(1, "%s error: Could not init Vulkan\n", __FUNCTION__);
-		return false;
-	}
+  glfwSetMouseButtonCallback(
+      mWindow, [](GLFWwindow* win, int button, int action, int mods) {
+        auto app = static_cast<WindowApp*>(glfwGetWindowUserPointer(win));
+        app->handleMouseButtonEvents(button, action, mods);
+      });
 
-	/* Initialize camera */
+  glfwSetCursorPosCallback(
+      mWindow, [](GLFWwindow* win, double xpos, double ypos) {
+        auto app = static_cast<WindowApp*>(glfwGetWindowUserPointer(win));
+        app->handleMousePositionEvents(xpos, ypos);
+      });
+
+  /* Initialize renderer */
+  mRenderer = std::make_unique<VkRenderer>(mWindow);
+  if (!mRenderer->init(width, height)) {
+    glfwTerminate();
+    Logger::log(1, "%s error: Could not init Vulkan\n", __FUNCTION__);
+    return false;
+  }
+
+  /* Initialize camera */
   mCamera = std::make_unique<Camera>();
-	mRenderer->bindCamera(mCamera);
+  mRenderer->bindCamera(mCamera);
 
-	Logger::log(1, "%s: Window with Vulkan successfully initialized\n", __FUNCTION__);
-	return true;
+  Logger::log(1, "%s: Window with Vulkan successfully initialized\n",
+              __FUNCTION__);
+  return true;
 }
 
-void WindowApp::run()
-{
-	/* force VSYNC */
-	glfwSwapInterval(1);
+void WindowApp::run() {
+  /* force VSYNC */
+  glfwSwapInterval(1);
 
-	auto loopStartTime = std::chrono::steady_clock::now();
-	auto loopEndTime = std::chrono::steady_clock::now();
-	float deltaTime = 0.0f;
+  auto loopStartTime = std::chrono::steady_clock::now();
+  auto loopEndTime = std::chrono::steady_clock::now();
+  float deltaTime = 0.0f;
 
-	while (!glfwWindowShouldClose(mWindow)) {
-		glfwPollEvents();
+  while (!glfwWindowShouldClose(mWindow)) {
+    glfwPollEvents();
 
-		/* calculate the time we needed for the current frame, */
-		/* feed it to the next update() call */
-		loopEndTime = std::chrono::steady_clock::now();
+    mInput->process();
 
-		/* delta time in seconds */
-		deltaTime = std::chrono::duration_cast<std::chrono::microseconds>(loopEndTime - loopStartTime).count() / 1'000'000.0f;
-		loopStartTime = loopEndTime;
+    /* calculate the time we needed for the current frame, */
+    /* feed it to the next update() call */
+    loopEndTime = std::chrono::steady_clock::now();
 
-		update(deltaTime);
+    /* delta time in seconds */
+    deltaTime = std::chrono::duration_cast<std::chrono::microseconds>(
+                    loopEndTime - loopStartTime)
+                    .count() /
+                1'000'000.0f;
+    loopStartTime = loopEndTime;
 
-		if (!mRenderer->draw()) {
-			break;
-		}
-	}
+    update(deltaTime);
+
+    if (!mRenderer->draw()) {
+      break;
+    }
+  }
 }
 
-void WindowApp::cleanup()
-{
-	mRenderer->cleanup();
+void WindowApp::cleanup() {
+  mRenderer->cleanup();
 
-	glfwDestroyWindow(mWindow);
-	glfwTerminate();
-	Logger::log(1, "%s: Terminating Window\n", __FUNCTION__);
+  glfwDestroyWindow(mWindow);
+  glfwTerminate();
+  Logger::log(1, "%s: Terminating Window\n", __FUNCTION__);
 }
 
 void WindowApp::handleResize(int width, int height) {
-  if (mRenderer) 
-		mRenderer->setSize(width, height);
+  if (mRenderer) mRenderer->setSize(width, height);
 }
 
-void WindowApp::handleKeyEvents(int key, int scancode, int action, int mods)
-{
+void WindowApp::handleKeyEvents(int key, int scancode, int action, int mods) {
   /* hide from application */
   ImGuiIO& io = ImGui::GetIO();
   if (io.WantCaptureKeyboard) {
     return;
   }
 
-  if (mCamera) {
-    if (key == GLFW_KEY_W && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
-      mCamera->addMoveForward(1);
-    }
-    if (key == GLFW_KEY_S && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
-      mCamera->addMoveForward(-1);
-    }
-    if (key == GLFW_KEY_A && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
-      mCamera->addMoveRight(-1);
-    }
-    if (key == GLFW_KEY_D && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
-      mCamera->addMoveRight(1);
-    }
-    if (key == GLFW_KEY_E && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
-      mCamera->addMoveUp(1);
-    }
-    if (key == GLFW_KEY_Q && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
-      mCamera->addMoveUp(-1);
-    }
-
-    if (key == GLFW_KEY_MINUS &&
-        (action == GLFW_PRESS || action == GLFW_REPEAT)) {
-      mCamera->addMoveSpeed(-10);
-    }
-    if (key == GLFW_KEY_EQUAL &&
-        (action == GLFW_PRESS || action == GLFW_REPEAT)) {
-      mCamera->addMoveSpeed(10);
-    }
-  }
+  KeyEvent e{InputEventType_Keyboard};
+  e.key = key;
+  e.scancode = scancode;
+  e.action = action;
+  e.shift = mods & GLFW_MOD_SHIFT;
+  e.alt = mods & GLFW_MOD_ALT;
+  e.ctrl = mods & GLFW_MOD_CONTROL;
+  mInput->pushKeyEvent(e);
 }
 
-void WindowApp::handleMouseButtonEvents(int button, int action, int mods)
-{
+void WindowApp::handleMouseButtonEvents(int button, int action, int mods) {
   /* forward to ImGui */
   ImGuiIO& io = ImGui::GetIO();
   if (button >= 0 && button < ImGuiMouseButton_COUNT) {
@@ -172,13 +181,12 @@ void WindowApp::handleMouseButtonEvents(int button, int action, int mods)
 
   if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
     bMouseButtonRightPressed = !bMouseButtonRightPressed;
-		
+
     if (bMouseButtonRightPressed) {
       glfwSetInputMode(mWindow, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
       /* enable raw mode if possible */
       if (glfwRawMouseMotionSupported()) {
-        glfwSetInputMode(mWindow, GLFW_RAW_MOUSE_MOTION,
-                         GLFW_TRUE);
+        glfwSetInputMode(mWindow, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
       }
       if (mRenderer) {
         mRenderer->hideMouse(true);
@@ -192,8 +200,7 @@ void WindowApp::handleMouseButtonEvents(int button, int action, int mods)
   }
 }
 
-void WindowApp::handleMousePositionEvents(double xPos, double yPos)
-{
+void WindowApp::handleMousePositionEvents(double xPos, double yPos) {
   /* forward to ImGui */
   ImGuiIO& io = ImGui::GetIO();
   io.AddMousePosEvent((float)xPos, (float)yPos);
@@ -211,7 +218,7 @@ void WindowApp::handleMousePositionEvents(double xPos, double yPos)
     if (mCamera) {
       mCamera->addViewAzimuth(mouseMoveRelX / 10.0f);
       mCamera->addViewElevation(-mouseMoveRelY / 10.0f);
-		}
+    }
   }
 
   /* save old values */
@@ -219,9 +226,41 @@ void WindowApp::handleMousePositionEvents(double xPos, double yPos)
   mCurrMouseYPos = static_cast<int>(yPos);
 }
 
-void WindowApp::update(float deltaTime) { 
-	/* update camera */
-	mCamera->updateCamera(deltaTime);
+void WindowApp::moveForwardAction() {
+  if (mCamera) mCamera->addMoveForward(1);
+}
 
-	mRenderer->updateAnimations(deltaTime);
+void WindowApp::moveBackwardAction() {
+  if (mCamera) mCamera->addMoveForward(-1);
+}
+
+void WindowApp::moveRightAction() {
+  if (mCamera) mCamera->addMoveRight(1);
+}
+
+void WindowApp::moveLeftAction() {
+  if (mCamera) mCamera->addMoveRight(-1);
+}
+
+void WindowApp::moveUpAction() {
+  if (mCamera) mCamera->addMoveUp(1);
+}
+
+void WindowApp::moveDownAction() {
+  if (mCamera) mCamera->addMoveUp(-1);
+}
+
+void WindowApp::increaseMoveSpeedAction() {
+  if (mCamera) mCamera->addMoveSpeed(10);
+}
+
+void WindowApp::decreaseMoveSpeedAction() {
+  if (mCamera) mCamera->addMoveSpeed(-10);
+}
+
+void WindowApp::update(float deltaTime) {
+  /* update camera */
+  mCamera->updateCamera(deltaTime);
+
+  mRenderer->updateAnimations(deltaTime);
 }
