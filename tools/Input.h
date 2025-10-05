@@ -2,14 +2,16 @@
 
 #include <GLFW/glfw3.h>
 
+#include <glm/vec2.hpp>
+
 #include <algorithm>
 #include <array>
 #include <bitset>
 #include <chrono>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
-#include <mutex>
 
 #include "CircularBuffer.h"
 #include "Delegate.h"
@@ -79,48 +81,85 @@ class InputManager {
 
   struct KeyBindingSlot {
     uint32_t id;
+    bool valid;
+
     Delegate<void()> d;
     int key;
     KeyActionType action;
     int priority;
     bool consume;
-    bool valid;
   };
+
+	template<typename T>
+  struct SlotTable {
+    // ===== Slot storage (ID == index) =====
+    std::vector<T> bindingSlots;        // dense vector
+    std::vector<uint32_t> freeBindingIndices;        // LIFO free-list
+    std::vector<uint32_t> bindingSlotDeletionQueue;  // deferred removes
+
+    size_t getNumBindingSlots() const { return bindingSlots.size(); }
+
+    // Allocate a slot index (reuse hole or grow)
+    uint32_t allocSlotIndex_() {
+      if (!freeBindingIndices.empty()) {
+        uint32_t idx = freeBindingIndices.back();
+        freeBindingIndices.pop_back();
+        return idx;
+      }
+      bindingSlots.emplace_back();  // default slot at tail
+      return static_cast<uint32_t>(bindingSlots.size() - 1);
+    }
+
+    // Core add function
+    template <typename... Args>
+    uint32_t addKeyBindingSlot(Args&&... args) {
+      uint32_t idx = allocSlotIndex_();
+      bindingSlots[idx] = T{idx, true, std::forward<Args>(args)...};
+			return idx;
+    }
+
+    void removeKeyBindingSlot(uint32_t id) {
+      bindingSlotDeletionQueue.push_back(id);
+    }
+
+    // Process deferred removals
+    void flushPendingRemovals() {
+      if (bindingSlotDeletionQueue.empty()) return;
+      for (uint32_t id : bindingSlotDeletionQueue) {
+        if (id < bindingSlots.size()) {
+          auto& slot = bindingSlots[id];
+          if (slot.valid) {
+            // clear and recycle
+            slot = T{};
+            freeBindingIndices.push_back(id);
+          }
+        }
+      }
+      bindingSlotDeletionQueue.clear();
+    }
+
+		T& operator[](size_t idx) { return bindingSlots[idx]; }
+    const T& operator[](size_t idx) const { return bindingSlots[idx]; }
+  };
+
+  SlotTable<KeyBindingSlot> keyBindingSlots;
 
  public:
   InputManager() : _conn{std::make_shared<Connection>(this)} {}
 
   // Call this once per frame after updating currKeys from your backend
-  void process() {
-    pollEvents();
+  void process();
 
-    processKeyBindings();
-  }
-
-  void pushKeyEvent(const KeyEvent& e) {
-    std::lock_guard<std::mutex> lock(getCurrEventQueueMutex());
-
-    CircularBuffer& buf = getCurrEventQueue();
-    buf.write<KeyEvent>(&e);
-  }
+  void pushKeyEvent(const KeyEvent& e);
 
   struct KeyBinding {
-    void remove() {
-      if (_conn && _conn->isConnected()) {
-        _conn->getHost()->removeKeyBindingSlot(id);
-      }
-    }
-
     uint32_t id;
     std::shared_ptr<Connection> _conn;
-  };
 
+    void remove();
+  };
   KeyBinding bindKey(Delegate<void()> d, int key, KeyActionType action,
-                     int priority = 0,
-                     bool consume = false) {
-    return addKeyBindingSlot(std::move(d), key, action,
-                             priority, consume);
-  }
+                     int priority = 0, bool consume = false);
 
  private:
   std::bitset<kGLFWNumKeys> prevKeys{}, currKeys{};
@@ -139,106 +178,17 @@ class InputManager {
   }
   std::mutex& getCurrEventQueueMutex() {
     return eventQueueMutexes[getCurrQueueIndex()];
-	}
+  }
 
-	void pollEvents() {
-    std::lock_guard<std::mutex> lock(getCurrEventQueueMutex());
-
-    CircularBuffer& buf = getCurrEventQueue();
-
-    InputEventHeader header;
-    while (buf.peek(&header)) {
-      switch (header.type) {
-        case InputEventType_Keyboard:
-          readKeyEvent(buf); 
-					break;
-        case InputEventType_MouseButton:
-        case InputEventType_MousePosition:
-        case InputEventType_GamePadKey:
-        case InputEventType_GamePadJoystick:
-				default: break;
-      }
-    }
-
-		++indexCount;
-	}
-
-	void readKeyEvent(CircularBuffer& buf) {
-    KeyEvent e;
-    buf.read(&e);
-		switch (e.action) {
-      case GLFW_PRESS:
-        currKeys.set(e.key);
-				break;
-			case GLFW_RELEASE:
-        currKeys.reset(e.key);
-				break;
-		}
-	}
+  void pollEvents();
+  void readKeyEvent(CircularBuffer& buf);
 
  private:
   std::shared_ptr<Connection> _conn;
 
-  // ===== Slot storage (ID == index) =====
-  std::vector<KeyBindingSlot> keyBindingSlots;        // dense vector
-  std::vector<uint32_t> freeKeyBindingIndices;        // LIFO free-list
-  std::vector<uint32_t> keyBindingSlotDeletionQueue;  // deferred removes
-  std::vector<uint32_t> tempActive_;  // frame-local list of indices
-
-  // Allocate a slot index (reuse hole or grow)
-  uint32_t allocSlotIndex_() {
-    if (!freeKeyBindingIndices.empty()) {
-      uint32_t idx = freeKeyBindingIndices.back();
-      freeKeyBindingIndices.pop_back();
-      return idx;
-    }
-    keyBindingSlots.emplace_back();  // default slot at tail
-    return static_cast<uint32_t>(keyBindingSlots.size() - 1);
-  }
-
-  // Core add function
-  KeyBinding addKeyBindingSlot(Delegate<void()> d, int key,
-                                KeyActionType action, int priority,
-                                bool consume) {
-    uint32_t idx = allocSlotIndex_();
-    KeyBindingSlot& slot = keyBindingSlots[idx];
-    slot.id = idx;
-    slot.d = std::move(d);
-    slot.key = key;
-    slot.action = action;
-    slot.priority = priority;
-    slot.consume = consume;
-    slot.valid = true;
-
-    KeyBinding hb{idx, _conn};
-    return hb;
-  }
-
-	void removeKeyBindingSlot(uint32_t id) { keyBindingSlotDeletionQueue.push_back(id); }
-
-  // Process deferred removals
-  void flushPendingRemovals() {
-    if (keyBindingSlotDeletionQueue.empty()) return;
-    for (uint32_t id : keyBindingSlotDeletionQueue) {
-      if (id < keyBindingSlots.size()) {
-        auto& slot = keyBindingSlots[id];
-        if (slot.valid) {
-          // clear and recycle
-          slot.valid = false;
-          slot.d = Delegate<void()>{};
-          slot.key = -1;
-          slot.priority = 0;
-          slot.consume = false;
-          freeKeyBindingIndices.push_back(id);
-        }
-      }
-    }
-    keyBindingSlotDeletionQueue.clear();
-  }
-
   void processKeyBindings() {
     // finalize any deferred removals from last frame
-    flushPendingRemovals();
+    keyBindingSlots.flushPendingRemovals();
 
     std::bitset<kGLFWNumKeys> pressed{};
     std::bitset<kGLFWNumKeys> released{};
@@ -248,9 +198,9 @@ class InputManager {
     released = (~currKeys) & (prevKeys);
 
     // Build a working list of active slot indices
-    tempActive_.clear();
-    tempActive_.reserve(keyBindingSlots.size());
-    for (uint32_t idx = 0; idx < keyBindingSlots.size(); ++idx) {
+    std::vector<uint32_t> tempActive_;  // frame-local list of indices
+    tempActive_.reserve(keyBindingSlots.getNumBindingSlots());
+    for (uint32_t idx = 0; idx < keyBindingSlots.getNumBindingSlots(); ++idx) {
       const auto& slot = keyBindingSlots[idx];
       if (slot.valid && slot.key >= 0 &&
           slot.key < static_cast<int>(kGLFWNumKeys)) {
