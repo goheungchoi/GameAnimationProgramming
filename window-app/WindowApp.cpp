@@ -62,6 +62,10 @@ bool WindowApp::init(unsigned int width, unsigned int height,
       Delegate<void()>::bind<WindowApp, &WindowApp::increaseMoveSpeedAction>(
           this),
       GLFW_KEY_EQUAL, KeyActionType::Pressed);
+  mInput->bindMouseMove(
+      Delegate<void(float, float)>::bind<WindowApp, &WindowApp::rotateCamera>(
+          this),
+      MouseMode::Disabled);
 
   /* Set event callbacks */
   glfwSetWindowUserPointer(mWindow, this);
@@ -210,20 +214,13 @@ void WindowApp::handleMousePositionEvents(double xPos, double yPos) {
     return;
   }
 
-  /* calculate relative movement from last position */
-  int mouseMoveRelX = static_cast<int>(xPos) - mCurrMouseXPos;
-  int mouseMoveRelY = static_cast<int>(yPos) - mCurrMouseYPos;
-
-  if (bMouseButtonRightPressed) {
-    if (mCamera) {
-      mCamera->addViewAzimuth(mouseMoveRelX / 10.0f);
-      mCamera->addViewElevation(-mouseMoveRelY / 10.0f);
-    }
-  }
-
-  /* save old values */
-  mCurrMouseXPos = static_cast<int>(xPos);
-  mCurrMouseYPos = static_cast<int>(yPos);
+  MousePositionEvent e{InputEventType_MousePosition};
+  e.xpos = xPos;
+  e.ypos = yPos;
+  int mode = glfwGetInputMode(mWindow, GLFW_CURSOR);
+  e.hidden = (mode == GLFW_CURSOR_HIDDEN);
+  e.disabled = (mode == GLFW_CURSOR_DISABLED);
+  mInput->pushMousePositionEvent(e);
 }
 
 void WindowApp::moveForwardAction() {
@@ -256,6 +253,13 @@ void WindowApp::increaseMoveSpeedAction() {
 
 void WindowApp::decreaseMoveSpeedAction() {
   if (mCamera) mCamera->addMoveSpeed(-10);
+}
+
+void WindowApp::rotateCamera(float mouseDeltaX, float mouseDeltaY) {
+  if (mCamera) {
+    mCamera->addViewAzimuth(mouseDeltaX / 10.0f);
+    mCamera->addViewElevation(-mouseDeltaY / 10.0f);
+  }
 }
 
 void WindowApp::update(float deltaTime) {

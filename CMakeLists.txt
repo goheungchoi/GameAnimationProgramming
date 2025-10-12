@@ -330,3 +330,5 @@ else()
   # Clang and GCC may need libstd++ and libmath
   target_link_libraries(${PROJECT_NAME} PRIVATE ${GLFW3_LIBRARY} readerwriterqueue ${ASSIMP_LIBRARY} ${ASSIMP_ZLIB_LIBRARY} Vulkan::Vulkan vk-bootstrap::vk-bootstrap stdc++ m)
 endif()
+
+add_subdirectory(tests)

@@ -42,5 +42,7 @@ class WindowApp {
 	void increaseMoveSpeedAction();
   void decreaseMoveSpeedAction();
 
+	void rotateCamera(float dx, float dy);
+
   void update(float deltaTime);
 };
