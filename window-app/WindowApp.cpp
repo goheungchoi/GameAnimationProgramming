@@ -37,33 +37,33 @@ bool WindowApp::init(unsigned int width, unsigned int height,
   /* Input settings */
   mInput = std::make_unique<InputManager>();
   mInput->bindKey(
-      Delegate<void()>::bind<WindowApp, &WindowApp::moveForwardAction>(this),
+      Delegate<void()>::bind<&WindowApp::moveForwardAction>(this),
       GLFW_KEY_W, KeyActionType::Down);
   mInput->bindKey(
-      Delegate<void()>::bind<WindowApp, &WindowApp::moveBackwardAction>(this),
+      Delegate<void()>::bind<&WindowApp::moveBackwardAction>(this),
       GLFW_KEY_S, KeyActionType::Down);
   mInput->bindKey(
-      Delegate<void()>::bind<WindowApp, &WindowApp::moveRightAction>(this),
+      Delegate<void()>::bind<&WindowApp::moveRightAction>(this),
       GLFW_KEY_D, KeyActionType::Down);
   mInput->bindKey(
-      Delegate<void()>::bind<WindowApp, &WindowApp::moveLeftAction>(this),
+      Delegate<void()>::bind<&WindowApp::moveLeftAction>(this),
       GLFW_KEY_A, KeyActionType::Down);
   mInput->bindKey(
-      Delegate<void()>::bind<WindowApp, &WindowApp::moveDownAction>(this),
+      Delegate<void()>::bind<&WindowApp::moveDownAction>(this),
       GLFW_KEY_Q, KeyActionType::Down);
   mInput->bindKey(
-      Delegate<void()>::bind<WindowApp, &WindowApp::moveUpAction>(this),
+      Delegate<void()>::bind<&WindowApp::moveUpAction>(this),
       GLFW_KEY_E, KeyActionType::Down);
   mInput->bindKey(
-      Delegate<void()>::bind<WindowApp, &WindowApp::decreaseMoveSpeedAction>(
+      Delegate<void()>::bind<&WindowApp::decreaseMoveSpeedAction>(
           this),
       GLFW_KEY_MINUS, KeyActionType::Pressed);
   mInput->bindKey(
-      Delegate<void()>::bind<WindowApp, &WindowApp::increaseMoveSpeedAction>(
+      Delegate<void()>::bind<&WindowApp::increaseMoveSpeedAction>(
           this),
       GLFW_KEY_EQUAL, KeyActionType::Pressed);
   mInput->bindMouseMove(
-      Delegate<void(float, float)>::bind<WindowApp, &WindowApp::rotateCamera>(
+      Delegate<void(float, float)>::bind<&WindowApp::rotateCamera>(
           this),
       MouseMode::Disabled);
 

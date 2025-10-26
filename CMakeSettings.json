@@ -15,6 +15,16 @@
 					"name": "GLFW_LIBRARY_TYPE",
 					"value": "",
 					"type": "STRING"
+				},
+				{
+					"name": "VCPKG_SETUP_CMAKE_PROGRAM_PATH",
+					"value": "False",
+					"type": "BOOL"
+				},
+				{
+					"name": "VCPKG_APPLOCAL_DEPS",
+					"value": "False",
+					"type": "BOOL"
 				}
 			]
 		}
