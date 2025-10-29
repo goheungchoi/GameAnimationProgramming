@@ -43,6 +43,24 @@ if(NOT imgui_POPULATED)
   add_subdirectory(${imgui_SOURCE_DIR} EXCLUDE_FROM_ALL)
 endif()
 
+# --- ImGuizmo ---
+FetchContent_Declare(
+  imguizmo
+  GIT_REPOSITORY https://github.com/CedricGuillemet/ImGuizmo
+  GIT_SHALLOW    1
+)
+FetchContent_MakeAvailable(imguizmo)
+
+add_library(ImGuizmo STATIC
+  ${imguizmo_SOURCE_DIR}/ImGuizmo.cpp
+)
+target_include_directories(ImGuizmo PUBLIC
+  ${imguizmo_SOURCE_DIR}       # ImGuizmo.h
+  ${imgui_SOURCE_DIR}          # imgui.h, imgui_internal.h
+  ${imgui_SOURCE_DIR}/backends # (not strictly required for ImGuizmo, fine to include)
+)
+target_compile_definitions(ImGuizmo PRIVATE IMGUI_DEFINE_MATH_OPERATORS)
+
 # get ImGuiFileDialog, also files only
 FetchContent_Declare(
   filedialog
@@ -196,15 +214,35 @@ file(GLOB SOURCES
   ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp
   ${filedialog_SOURCE_DIR}/*.cpp
   ${vk_bootstrap_SOURCE_DIR}/*.cpp
+	#extern
+	extern/ImGuizmo/src/ImGuizmo.cpp
 )
 
 # Add the executable target.
 add_executable(${PROJECT_NAME} ${SOURCES})
 # Executable's include directories.
-target_include_directories(${PROJECT_NAME} PUBLIC window-app tools renderer renderer/backend model)
+target_include_directories(${PROJECT_NAME} 
+PUBLIC
+	window-app 
+	tools 
+	renderer 
+	renderer/backend 
+	model
+)
 # non-standard include dirs
-target_include_directories(${PROJECT_NAME} PRIVATE ${imgui_SOURCE_DIR} ${imgui_SOURCE_DIR}/backends
-  ${filedialog_SOURCE_DIR} ${readerwriterqueue_SOURCE_DIR} ${stbi_SOURCE_DIR} ${vk_bootstrap_SOURCE_DIR}/src ${vma_SOURCE_DIR}/include)
+target_include_directories(${PROJECT_NAME} 
+PRIVATE 
+	${imgui_SOURCE_DIR} 
+	${imgui_SOURCE_DIR}/backends
+  ${filedialog_SOURCE_DIR} 
+	${readerwriterqueue_SOURCE_DIR} 
+	${stbi_SOURCE_DIR} 
+	${vk_bootstrap_SOURCE_DIR}/src 
+	${vma_SOURCE_DIR}/include
+	extern/ImGuizmo/include
+)
+target_compile_definitions(${PROJECT_NAME} PRIVATE IMGUI_DEFINE_MATH_OPERATORS)
+
 find_package(Vulkan REQUIRED)
 
 find_package(glfw3 3.3 REQUIRED)
@@ -325,10 +363,10 @@ add_definitions(-DGLM_ENABLE_EXPERIMENTAL)
 add_definitions(-DGLM_FORCE_DEPTH_ZERO_TO_ONE)
 
 if(MSVC)
-  target_link_libraries(${PROJECT_NAME} PRIVATE glfw readerwriterqueue ${ASSIMP_LIBRARY} ${ASSIMP_ZLIB_LIBRARY} Vulkan::Vulkan vk-bootstrap::vk-bootstrap)
+  target_link_libraries(${PROJECT_NAME} PRIVATE glfw readerwriterqueue ${ASSIMP_LIBRARY} ${ASSIMP_ZLIB_LIBRARY} Vulkan::Vulkan vk-bootstrap::vk-bootstrap ImGuizmo)
 else()
   # Clang and GCC may need libstd++ and libmath
-  target_link_libraries(${PROJECT_NAME} PRIVATE ${GLFW3_LIBRARY} readerwriterqueue ${ASSIMP_LIBRARY} ${ASSIMP_ZLIB_LIBRARY} Vulkan::Vulkan vk-bootstrap::vk-bootstrap stdc++ m)
+  target_link_libraries(${PROJECT_NAME} PRIVATE ${GLFW3_LIBRARY} readerwriterqueue ${ASSIMP_LIBRARY} ${ASSIMP_ZLIB_LIBRARY} Vulkan::Vulkan vk-bootstrap::vk-bootstrap ImGuizmo stdc++ m)
 endif()
 
 add_subdirectory(tests)

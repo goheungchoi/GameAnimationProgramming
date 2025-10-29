@@ -14,4 +14,6 @@ struct InstanceSettings {
   unsigned int animClipNr = 0;
   float animPlayTimePos = 0.0f;
   float animSpeedFactor = 1.0f;
+
+	int instanceIndexPos = -1;
 };

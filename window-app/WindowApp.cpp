@@ -224,39 +224,65 @@ void WindowApp::handleMousePositionEvents(double xPos, double yPos) {
 }
 
 void WindowApp::moveForwardAction() {
-  if (mCamera) mCamera->addMoveForward(1);
+  if (!mCamera) return;
+	
+	if (bMouseButtonRightPressed)
+		mCamera->addMoveForward(1);
 }
 
 void WindowApp::moveBackwardAction() {
-  if (mCamera) mCamera->addMoveForward(-1);
+  if (!mCamera) return;
+
+  if (bMouseButtonRightPressed) 
+		mCamera->addMoveForward(-1);
 }
 
 void WindowApp::moveRightAction() {
-  if (mCamera) mCamera->addMoveRight(1);
+  if (!mCamera) return;
+
+  if (bMouseButtonRightPressed) 
+		mCamera->addMoveRight(1);
 }
 
 void WindowApp::moveLeftAction() {
-  if (mCamera) mCamera->addMoveRight(-1);
+  if (!mCamera) return;
+
+  if (bMouseButtonRightPressed) 
+		mCamera->addMoveRight(-1);
 }
 
 void WindowApp::moveUpAction() {
-  if (mCamera) mCamera->addMoveUp(1);
+  if (!mCamera) return;
+
+  if (bMouseButtonRightPressed) 
+		mCamera->addMoveUp(1);
 }
 
 void WindowApp::moveDownAction() {
-  if (mCamera) mCamera->addMoveUp(-1);
+  if (!mCamera) return;
+
+  if (bMouseButtonRightPressed) 
+		mCamera->addMoveUp(-1);
 }
 
 void WindowApp::increaseMoveSpeedAction() {
-  if (mCamera) mCamera->addMoveSpeed(10);
+  if (!mCamera) return;
+
+  if (bMouseButtonRightPressed) 
+		mCamera->addMoveSpeed(10);
 }
 
 void WindowApp::decreaseMoveSpeedAction() {
-  if (mCamera) mCamera->addMoveSpeed(-10);
+  if (!mCamera) return;
+
+  if (bMouseButtonRightPressed) 
+		mCamera->addMoveSpeed(-10);
 }
 
 void WindowApp::rotateCamera(float mouseDeltaX, float mouseDeltaY) {
-  if (mCamera) {
+  if (!mCamera) return;
+
+  if (bMouseButtonRightPressed) {
     mCamera->addViewAzimuth(mouseDeltaX / 10.0f);
     mCamera->addViewElevation(-mouseDeltaY / 10.0f);
   }

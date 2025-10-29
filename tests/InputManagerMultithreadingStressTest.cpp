@@ -21,19 +21,6 @@ int main() {
   std::atomic<uint64_t> cb_press{0};
   std::atomic<uint64_t> cb_release{0};
 
-  // Bind handlers (deterministic counters)
-  input.bindKey(Delegate<void()>::bind([&]() {
-                  cb_press.fetch_add(1, std::memory_order_relaxed);
-                }),
-                TEST_KEY, KeyActionType::Pressed, /*priority*/ 0,
-                /*consume*/ false);
-
-  input.bindKey(Delegate<void()>::bind([&]() {
-                  cb_release.fetch_add(1, std::memory_order_relaxed);
-                }),
-                TEST_KEY, KeyActionType::Released, /*priority*/ 0,
-                /*consume*/ false);
-
   // ===== Frame barrier state (deterministic handshake) =====
   std::mutex m;
   std::condition_variable cv_prod;  // consumer -> producer (new frame ready)

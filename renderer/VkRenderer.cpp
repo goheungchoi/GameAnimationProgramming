@@ -563,7 +563,7 @@ bool VkRenderer::draw() {
 	/* imGui overlay */
   mUIGenerateTimer.start();
   mUserInterface.hideMouse(bHideMouse);
-  mUserInterface.createFrame(mRenderData, mModelInstData);
+  mUserInterface.createFrame(mRenderData, mModelInstData, mCamera.get());
   mRenderData.rdUIGenerateTime += mUIGenerateTimer.stop();
 
   mUIDrawTimer.start();

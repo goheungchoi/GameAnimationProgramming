@@ -3,11 +3,15 @@
 #include <ImGuiFileDialog.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_vulkan.h>
+#include "ImGuizmo.h"
 
 #include <filesystem>
 #include <glm/glm.hpp>
+#include <glm/gtx/euler_angles.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/string_cast.hpp>
+#include <glm/gtx/matrix_decompose.hpp>
+#include <glm/gtx/component_wise.hpp>
 #include <limits>
 #include <string>
 
@@ -16,6 +20,7 @@
 #include "AssimpModel.h"
 #include "CommandBuffer.h"
 #include "InstanceSettings.h"
+#include "Camera.h"
 #include "Logger.h"
 
 bool UserInterface::init(VkRenderData& renderData) {
@@ -103,10 +108,12 @@ void UserInterface::hideMouse(bool hide) {
 }
 
 void UserInterface::createFrame(VkRenderData& renderData,
-                                ModelAndInstanceData& modInstData) {
+                                ModelAndInstanceData& modInstData,
+                                Camera* cam) {
   ImGui_ImplVulkan_NewFrame();
   ImGui_ImplGlfw_NewFrame();
   ImGui::NewFrame();
+  ImGuizmo::BeginFrame();	
 
   ImGuiIO& io = ImGui::GetIO();
   ImGuiWindowFlags imguiWindowFlags = 0;
@@ -531,27 +538,45 @@ void UserInterface::createFrame(VkRenderData& renderData,
   }
 
   if (ImGui::CollapsingHeader("Instances")) {
-    size_t numberOfInstances = modInstData.miAssimpInstances.size();
+    bool modelListEmtpy = modInstData.miModelList.size() == 1;
+    bool nullInstanceSelected = modInstData.miSelectedInstance == 0;
+    size_t numberOfInstances = modInstData.miAssimpInstances.size() - 1;
 
     ImGui::Text("Number of Instances: %ld", numberOfInstances);
 
-    if (numberOfInstances == 0) {
+    if (modelListEmtpy) {
       ImGui::BeginDisabled();
     }
+
+   /* ImGui::AlignTextToFramePadding();
+    ImGui::Text("Hightlight Instance:");
+    ImGui::SameLine();
+    ImGui::Checkbox("##HighlightInstance",
+                    &renderData.rdHighlightSelectedInstance);*/
 
     ImGui::AlignTextToFramePadding();
     ImGui::Text("Selected Instance  :");
     ImGui::SameLine();
     ImGui::PushButtonRepeat(true);
     if (ImGui::ArrowButton("##Left", ImGuiDir_Left) &&
-        modInstData.miSelectedInstance > 0) {
+        modInstData.miSelectedInstance > 1) {
       modInstData.miSelectedInstance--;
     }
+
+    if (modelListEmtpy || nullInstanceSelected) {
+      ImGui::BeginDisabled();
+    }
+
     ImGui::SameLine();
     ImGui::PushItemWidth(30);
-    ImGui::DragInt("##SelInst", &modInstData.miSelectedInstance, 1, 0,
+    ImGui::DragInt("##SelInst", &modInstData.miSelectedInstance, 1, 1,
                    modInstData.miAssimpInstances.size() - 1, "%3d", flags);
     ImGui::PopItemWidth();
+
+    if (modelListEmtpy || nullInstanceSelected) {
+      ImGui::EndDisabled();
+    }
+
     ImGui::SameLine();
     if (ImGui::ArrowButton("##Right", ImGuiDir_Right) &&
         modInstData.miSelectedInstance <
@@ -560,6 +585,19 @@ void UserInterface::createFrame(VkRenderData& renderData,
     }
     ImGui::PopButtonRepeat();
 
+    if (modelListEmtpy) {
+      ImGui::EndDisabled();
+    }
+
+    if (modelListEmtpy || nullInstanceSelected) {
+      ImGui::BeginDisabled();
+    }
+
+    /* DragInt does not like clamp flag */
+    modInstData.miSelectedInstance =
+        std::clamp(modInstData.miSelectedInstance, 0,
+                   static_cast<int>(modInstData.miAssimpInstances.size() - 1));
+
     InstanceSettings settings;
     if (numberOfInstances > 0) {
       settings =
@@ -567,24 +605,17 @@ void UserInterface::createFrame(VkRenderData& renderData,
               ->getInstanceSettings();
     }
 
-    ImGui::SameLine();
-    if (ImGui::Button("Clone Instance")) {
+    /*if (ImGui::Button("Center This Instance")) {
       std::shared_ptr<AssimpInstance> currentInstance =
           modInstData.miAssimpInstances.at(modInstData.miSelectedInstance);
-      modInstData.miInstanceCloneCallbackFunction(currentInstance);
+      modInstData.miInstanceCenterCallbackFunction(currentInstance);
+    }*/
 
-      /* reset to last position for now */
-      modInstData.miSelectedInstance = modInstData.miAssimpInstances.size() - 1;
-
-      /* read back settings for UI */
-      settings =
-          modInstData.miAssimpInstances.at(modInstData.miSelectedInstance)
-              ->getInstanceSettings();
-    }
+    ImGui::SameLine();
 
     /* we MUST retain the last model */
     unsigned int numberOfInstancesPerModel = 0;
-    if (!modInstData.miAssimpInstances.empty()) {
+    if (modInstData.miAssimpInstances.size() > 1) {
       std::shared_ptr<AssimpInstance> currentInstance =
           modInstData.miAssimpInstances.at(modInstData.miSelectedInstance);
       std::string currentModelName =
@@ -604,7 +635,7 @@ void UserInterface::createFrame(VkRenderData& renderData,
       modInstData.miInstanceDeleteCallbackFunction(currentInstance);
 
       /* hard reset for now */
-      if (modInstData.miSelectedInstance > 0) {
+      if (modInstData.miSelectedInstance > 1) {
         modInstData.miSelectedInstance -= 1;
       }
       settings =
@@ -616,15 +647,47 @@ void UserInterface::createFrame(VkRenderData& renderData,
       ImGui::EndDisabled();
     }
 
-    if (numberOfInstances == 0) {
+    if (ImGui::Button("Clone Instance")) {
+      std::shared_ptr<AssimpInstance> currentInstance =
+          modInstData.miAssimpInstances.at(modInstData.miSelectedInstance);
+      modInstData.miInstanceCloneCallbackFunction(currentInstance);
+
+      /* reset to last position for now */
+      modInstData.miSelectedInstance = modInstData.miAssimpInstances.size() - 1;
+
+      /* read back settings for UI */
+      settings =
+          modInstData.miAssimpInstances.at(modInstData.miSelectedInstance)
+              ->getInstanceSettings();
+    }
+
+    //if (ImGui::Button("Create Multiple Clones")) {
+    //  std::shared_ptr<AssimpInstance> currentInstance =
+    //      modInstData.miAssimpInstances.at(modInstData.miSelectedInstance);
+    //  modInstData.miInstanceCloneManyCallbackFunction(currentInstance,
+    //                                                  mManyInstanceCloneNum);
+
+    //  /* reset to last position for now */
+    //  modInstData.miSelectedInstance = modInstData.miAssimpInstances.size() - 1;
+
+    //  /* read back settings for UI */
+    //  settings =
+    //      modInstData.miAssimpInstances.at(modInstData.miSelectedInstance)
+    //          ->getInstanceSettings();
+    //}
+    //ImGui::SameLine();
+    //ImGui::SliderInt("##MassInstanceCloning", &mManyInstanceCloneNum, 1, 100,
+    //                 "%d", flags);
+
+    if (modelListEmtpy || nullInstanceSelected) {
       ImGui::EndDisabled();
     }
 
     /* get the new size, in case of a deletion */
-    numberOfInstances = modInstData.miAssimpInstances.size();
+    numberOfInstances = modInstData.miAssimpInstances.size() - 1;
 
     std::string baseModelName = "None";
-    if (numberOfInstances > 0) {
+    if (numberOfInstances > 0 && !nullInstanceSelected) {
       baseModelName =
           modInstData.miAssimpInstances.at(modInstData.miSelectedInstance)
               ->getModel()
@@ -632,7 +695,7 @@ void UserInterface::createFrame(VkRenderData& renderData,
     }
     ImGui::Text("Base Model: %s", baseModelName.c_str());
 
-    if (numberOfInstances == 0) {
+    if (numberOfInstances == 0 || nullInstanceSelected) {
       ImGui::BeginDisabled();
     }
 
@@ -659,12 +722,16 @@ void UserInterface::createFrame(VkRenderData& renderData,
     ImGui::SliderFloat("##ModelScale", &settings.scale, 0.001f, 10.0f, "%.4f",
                        flags);
 
-    if (ImGui::Button("Reset Instance Values")) {
-      InstanceSettings defaultSettings{};
-      settings = defaultSettings;
-    }
+    //if (ImGui::Button("Reset Instance Values")) {
+    //  InstanceSettings defaultSettings{};
 
-    if (numberOfInstances == 0) {
+    //  /* save and restore index positions */
+    //  int instanceIndex = settings.instanceIndexPos;
+    //  settings = defaultSettings;
+    //  settings.instanceIndexPos = instanceIndex;
+    //}
+
+    if (numberOfInstances == 0 || nullInstanceSelected) {
       ImGui::EndDisabled();
     }
 
@@ -742,6 +809,73 @@ void UserInterface::createFrame(VkRenderData& renderData,
     if (numberOfInstances > 0) {
       modInstData.miAssimpInstances.at(modInstData.miSelectedInstance)
           ->setInstanceSettings(settings);
+    }
+  }
+
+  if (modInstData.miSelectedInstance > 0) {
+    /* draw coordinate lines */
+    static ImGuizmo::OPERATION gOp = ImGuizmo::TRANSLATE;
+    static ImGuizmo::MODE gMode = ImGuizmo::LOCAL;
+    static bool gUseSnap = false;
+    static float gSnapMove[3] = {0.1f, 0.1f, 0.1f};  // step in world units
+    static float gSnapRot = 5.0f;                    // degrees
+    static float gSnapScale = 0.1f;
+
+    // hotkeys when instance is selected.
+    if (ImGui::IsKeyPressed(ImGuiKey_W)) 
+			gOp = ImGuizmo::TRANSLATE;
+    if (ImGui::IsKeyPressed(ImGuiKey_E)) 
+			gOp = ImGuizmo::ROTATE;
+    if (ImGui::IsKeyPressed(ImGuiKey_R)) 
+			gOp = ImGuizmo::SCALE_Y;
+    if (ImGui::IsKeyPressed(ImGuiKey_Q))
+      gMode = (gMode == ImGuizmo::LOCAL) ? ImGuizmo::WORLD : ImGuizmo::LOCAL;
+
+    auto pInst =
+        modInstData.miAssimpInstances.at(modInstData.miSelectedInstance);
+    InstanceSettings inst = pInst->getInstanceSettings();
+
+    glm::vec3 trans = pInst->getTranslation();
+    glm::vec3 rot = pInst->getRotation();
+    float scale = pInst->getScale();
+    glm::mat4 M = glm::mat4(1.f);
+    M = glm::translate(M, trans);
+    M = M * glm::mat4_cast(glm::quat(glm::radians(rot)));
+    M = glm::scale(M, glm::vec3(scale));
+
+    ImGui::InputFloat3("T", glm::value_ptr(trans));
+    ImGui::InputFloat3("R", glm::value_ptr(rot));
+    ImGui::InputFloat("S", &scale);
+
+    if (ImGui::IsKeyPressed(ImGuiKey_LeftCtrl)) gUseSnap = true;
+    ImGui::Checkbox("", &gUseSnap);
+    ImGui::SameLine();
+
+    ImGuiIO& io = ImGui::GetIO();
+    ImGuizmo::SetRect(0, 0, io.DisplaySize.x, io.DisplaySize.y);
+
+    glm::mat4 view = cam->getViewMatrix();
+    glm::mat4 proj = glm::perspective(
+        glm::radians(static_cast<float>(renderData.rdFOV)),
+        static_cast<float>(renderData.rdVkbSwapchain.extent.width) /
+            static_cast<float>(renderData.rdVkbSwapchain.extent.height),
+        0.1f, 500.0f);
+    if (ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(proj), gOp,
+                             gMode, glm::value_ptr(M), NULL,
+                             gUseSnap ? gSnapMove : NULL)) {
+      glm::vec3 newScale;
+      glm::quat newRot;
+      glm::vec3 newTrans;
+      glm::vec3 skew;
+      glm::vec4 perspective;
+      glm::decompose(M, newScale, newRot, newTrans, skew, perspective);
+
+      if (gOp == ImGuizmo::OPERATION::TRANSLATE)
+        pInst->setTranslation(newTrans);
+      else if (gOp == ImGuizmo::OPERATION::ROTATE)
+        pInst->setRotation(glm::degrees(glm::eulerAngles(newRot)));
+      else if (gOp == ImGuizmo::OPERATION::SCALE_Y) 
+				pInst->setScale(newScale.y);
     }
   }
 

@@ -9,7 +9,8 @@ class UserInterface {
   bool init(VkRenderData& renderData);
   void hideMouse(bool hide);
 
-  void createFrame(VkRenderData& renderData, ModelAndInstanceData& modInstData);
+  void createFrame(VkRenderData& renderData, ModelAndInstanceData& modInstData,
+                   class Camera* cam);
   void render(VkRenderData& renderData);
 
   void cleanup(VkRenderData& renderData);
