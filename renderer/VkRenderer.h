@@ -56,6 +56,8 @@ class VkRenderer {
   void deleteInstance(std::shared_ptr<AssimpInstance> instance);
   void cloneInstance(std::shared_ptr<AssimpInstance> instance);
 
+	void centerInstance(std::shared_ptr<AssimpInstance> instance);
+
   void updateAnimations(float deltaTime);
 
 	void cleanup();
@@ -114,6 +116,8 @@ class VkRenderer {
   bool recreateSwapchain();
 
 	void updateTriangleCount();
+
+	void assignInstanceIndices();
 
 	void updateComputeDescriptorSets();
   void runComputeShaders(std::shared_ptr<AssimpModel> model,

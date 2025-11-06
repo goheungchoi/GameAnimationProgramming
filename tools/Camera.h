@@ -19,6 +19,9 @@ class Camera {
 	glm::vec3 getTranslation() const;
 	float getMoveSpeed() const;
 
+	void lookAt(glm::vec3 pos);
+  void moveTo(glm::vec3 pos);
+
   void updateCamera(const float deltaTime);
   glm::mat4 getViewMatrix();
 
@@ -26,8 +29,8 @@ class Camera {
   float mViewAzimuth{330.0f};
   float mViewElevation{-20.0f};
 
-	float mMoveForward{0.f};
-	float mMoveRight{0.f};
+  float mMoveForward{0.f};
+  float mMoveRight{0.f};
 	float mMoveUp{0.f};
 	float mMoveSpeed{1.f};
 
@@ -38,5 +41,7 @@ class Camera {
   glm::vec3 mUpDirection = glm::vec3(0.0f, 0.0f, 0.0f);
 
   /* world up is positive Y */
-  const glm::vec3 mWorldUpVector = glm::vec3(0.0f, 1.0f, 0.0f);
+  static constexpr glm::vec3 kWorldUpVector = glm::vec3(0.0f, 1.0f, 0.0f);
+	static constexpr glm::vec3 kWorldFrontVector = glm::vec3(0.0f, 0.0f, 1.0f);
+	static constexpr glm::vec3 kWorldRightVector = glm::vec3(1.0f, 0.0f, 0.0f);
 };

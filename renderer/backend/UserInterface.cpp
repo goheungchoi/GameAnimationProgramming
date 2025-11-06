@@ -538,13 +538,13 @@ void UserInterface::createFrame(VkRenderData& renderData,
   }
 
   if (ImGui::CollapsingHeader("Instances")) {
-    bool modelListEmtpy = modInstData.miModelList.size() == 1;
+    bool modelListEmtpy = modInstData.miModelList.size() == 0;
     bool nullInstanceSelected = modInstData.miSelectedInstance == 0;
     size_t numberOfInstances = modInstData.miAssimpInstances.size() - 1;
 
     ImGui::Text("Number of Instances: %ld", numberOfInstances);
 
-    if (modelListEmtpy) {
+    if (nullInstanceSelected) {
       ImGui::BeginDisabled();
     }
 
@@ -585,7 +585,7 @@ void UserInterface::createFrame(VkRenderData& renderData,
     }
     ImGui::PopButtonRepeat();
 
-    if (modelListEmtpy) {
+    if (nullInstanceSelected) {
       ImGui::EndDisabled();
     }
 
@@ -605,11 +605,11 @@ void UserInterface::createFrame(VkRenderData& renderData,
               ->getInstanceSettings();
     }
 
-    /*if (ImGui::Button("Center This Instance")) {
+    if (ImGui::Button("Center This Instance")) {
       std::shared_ptr<AssimpInstance> currentInstance =
           modInstData.miAssimpInstances.at(modInstData.miSelectedInstance);
       modInstData.miInstanceCenterCallbackFunction(currentInstance);
-    }*/
+    }
 
     ImGui::SameLine();
 

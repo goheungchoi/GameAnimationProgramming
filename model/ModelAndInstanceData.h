@@ -20,6 +20,7 @@ using instanceAddCallback = std::function<std::shared_ptr<AssimpInstance>(std::s
 using instanceAddManyCallback = std::function<void(std::shared_ptr<AssimpModel>, int)>;
 using instanceDeleteCallback = std::function<void(std::shared_ptr<AssimpInstance>)>;
 using instanceCloneCallback = std::function<void(std::shared_ptr<AssimpInstance>)>;
+using instanceCenterCallback = std::function<void(std::shared_ptr<AssimpInstance>)>;
 
 struct ModelAndInstanceData {
   std::vector<std::shared_ptr<AssimpModel>> miModelList{};
@@ -43,4 +44,5 @@ struct ModelAndInstanceData {
   instanceAddManyCallback miInstanceAddManyCallbackFunction;
   instanceDeleteCallback miInstanceDeleteCallbackFunction;
   instanceCloneCallback miInstanceCloneCallbackFunction;
+	instanceCenterCallback miInstanceCenterCallbackFunction;
 };

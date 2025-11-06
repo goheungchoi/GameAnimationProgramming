@@ -1,5 +1,6 @@
 #include "Camera.h"
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/euler_angles.hpp>
 
 void Camera::addViewAzimuth(double dAzimuth) {
   mViewAzimuth += dAzimuth;
@@ -45,7 +46,16 @@ glm::vec3 Camera::getTranslation() const {
 }
 
 float Camera::getMoveSpeed() const {
-	return mMoveSpeed;
+	return mMoveSpeed; }
+
+void Camera::lookAt(glm::vec3 pos) {
+  glm::vec3 dir = glm::normalize(pos - mWorldPosition);
+  mViewAzimuth = glm::degrees(atan2f(dir.x, -dir.z));
+  mViewElevation = glm::degrees(asinf(dir.y));
+}
+
+void Camera::moveTo(glm::vec3 pos) {
+  mWorldPosition = pos;
 }
 
 void Camera::updateCamera(const float deltaTime) {
@@ -66,7 +76,7 @@ void Camera::updateCamera(const float deltaTime) {
     sinAzim * cosElev, sinElev, -cosAzim * cosElev));
 
   /* calculate right and up direction */
-  mRightDirection = glm::normalize(glm::cross(mViewDirection, mWorldUpVector));
+  mRightDirection = glm::normalize(glm::cross(mViewDirection, kWorldUpVector));
   mUpDirection = glm::normalize(glm::cross(mRightDirection, mViewDirection));
 
   /* update camera position depending on desired movement */
