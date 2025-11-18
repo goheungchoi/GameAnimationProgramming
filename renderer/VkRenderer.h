@@ -70,6 +70,10 @@ class VkRenderer {
   VkComputePushConstants mComputeModelData{};
   VkUniformBufferData mPerspectiveViewMatrixUBO{};
 
+	/* color hightlight for selection etc */
+  std::vector<glm::vec2> mSelectedInstance{};
+  VkShaderStorageBufferData mSelectedInstanceBuffer{};
+
 	/* for animated and non-animated models */
   std::vector<glm::mat4> mWorldPosMatrices{};
   VkShaderStorageBufferData mShaderModelRootMatrixBuffer{};

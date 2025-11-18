@@ -548,11 +548,11 @@ void UserInterface::createFrame(VkRenderData& renderData,
       ImGui::BeginDisabled();
     }
 
-   /* ImGui::AlignTextToFramePadding();
+    ImGui::AlignTextToFramePadding();
     ImGui::Text("Hightlight Instance:");
     ImGui::SameLine();
     ImGui::Checkbox("##HighlightInstance",
-                    &renderData.rdHighlightSelectedInstance);*/
+                    &renderData.rdHighlightSelectedInstance);
 
     ImGui::AlignTextToFramePadding();
     ImGui::Text("Selected Instance  :");

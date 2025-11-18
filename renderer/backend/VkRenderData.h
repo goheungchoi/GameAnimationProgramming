@@ -112,6 +112,9 @@ struct VkRenderData {
   float rdUIGenerateTime = 0.0f;
   float rdUIDrawTime = 0.0f;
 
+  bool rdHighlightSelectedInstance = false;
+  float rdSelectedInstanceHighlightValue = 1.0f;
+
   /* Vulkan specific stuff */
   VmaAllocator rdAllocator = nullptr;
 
@@ -123,6 +126,7 @@ struct VkRenderData {
   std::vector<VkImage> rdSwapchainImages{};
   std::vector<VkImageView> rdSwapchainImageViews{};
   std::vector<VkFramebuffer> rdFramebuffers{};
+  std::vector<VkFramebuffer> rdSelectionFramebuffers{};
 
   VkQueue rdGraphicsQueue = VK_NULL_HANDLE;
   VkQueue rdPresentQueue = VK_NULL_HANDLE;
@@ -133,7 +137,13 @@ struct VkRenderData {
   VkFormat rdDepthFormat = VK_FORMAT_UNDEFINED;
   VmaAllocation rdDepthImageAlloc = VK_NULL_HANDLE;
 
+  VkImage rdSelectionImage = VK_NULL_HANDLE;
+  VkImageView rdSelectionImageView = VK_NULL_HANDLE;
+  VkFormat rdSelectionFormat = VK_FORMAT_UNDEFINED;
+  VmaAllocation rdSelectionImageAlloc = VK_NULL_HANDLE;
+
   VkRenderPass rdRenderpass = VK_NULL_HANDLE;
+  VkRenderPass rdSelectionRenderpass = VK_NULL_HANDLE;
 
   VkPipelineLayout rdAssimpPipelineLayout = VK_NULL_HANDLE;
   VkPipelineLayout rdAssimpSkinningPipelineLayout = VK_NULL_HANDLE;

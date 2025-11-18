@@ -28,6 +28,10 @@ layout (std430, set = 1, binding = 2) readonly restrict buffer WorldPosMatrices 
   mat4 worldPos[];
 };
 
+layout (std430, set = 1, binding = 3) readonly restrict buffer InstanceSelected {
+	vec2 selected[];
+};
+
 void main() {
   uint skinMatOffset = gl_InstanceIndex * modelStride + skinMatrixOffset;
 
@@ -39,7 +43,13 @@ void main() {
 
   mat4 worldPosSkinMat = worldPos[gl_InstanceIndex + worldPosOffset] * skinMat;
   gl_Position = projection * view * worldPosSkinMat * vec4(aPos.x, aPos.y, aPos.z, 1.0);
-  color = aColor;
+
+	color = aColor * selected[gl_InstanceIndex + worldPosOffset].x;
+  /* draw the instance always on top when highlighted, helps to find it better */
+  if (selected[gl_InstanceIndex + worldPosOffset].x != 1.0f) {
+    gl_Position.z -= 1.0f;
+  }
+
   normal = transpose(inverse(worldPosSkinMat)) * vec4(aNormal.x, aNormal.y, aNormal.z, 1.0);
   texCoord = vec2(aPos.w, aNormal.w);
 }
