@@ -68,8 +68,7 @@ bool SkinningPipeline::init(const VkRenderData& renderData,
   jointsAttribute.binding = 0;
   jointsAttribute.location = 3;
   jointsAttribute.format = VK_FORMAT_R32G32B32A32_UINT;
-  jointsAttribute.offset =
-      static_cast<uint32_t>(offsetof(VkVertex, boneNum));
+  jointsAttribute.offset = static_cast<uint32_t>(offsetof(VkVertex, boneNum));
 
   VkVertexInputAttributeDescription weightAttribute{};
   weightAttribute.binding = 0;
@@ -131,19 +130,28 @@ bool SkinningPipeline::init(const VkRenderData& renderData,
   multisamplingInfo.sampleShadingEnable = VK_FALSE;
   multisamplingInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
-  VkPipelineColorBlendAttachmentState colorBlendAttachment{};
-  colorBlendAttachment.colorWriteMask =
+  VkPipelineColorBlendAttachmentState colorBlendAttachment1{};
+  colorBlendAttachment1.colorWriteMask =
       VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
       VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-  colorBlendAttachment.blendEnable = VK_FALSE;
+  colorBlendAttachment1.blendEnable = VK_FALSE;
+
+  VkPipelineColorBlendAttachmentState colorBlendAttachment2{};
+  colorBlendAttachment2.colorWriteMask =
+      VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+      VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+  colorBlendAttachment2.blendEnable = VK_FALSE;
+
+  VkPipelineColorBlendAttachmentState colorBlendAttachments[2] = {
+      colorBlendAttachment1, colorBlendAttachment2};
 
   VkPipelineColorBlendStateCreateInfo colorBlendingInfo{};
   colorBlendingInfo.sType =
       VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
   colorBlendingInfo.logicOpEnable = VK_FALSE;
   colorBlendingInfo.logicOp = VK_LOGIC_OP_COPY;
-  colorBlendingInfo.attachmentCount = 1;
-  colorBlendingInfo.pAttachments = &colorBlendAttachment;
+  colorBlendingInfo.attachmentCount = 2;
+  colorBlendingInfo.pAttachments = colorBlendAttachments;
   colorBlendingInfo.blendConstants[0] = 0.0f;
   colorBlendingInfo.blendConstants[1] = 0.0f;
   colorBlendingInfo.blendConstants[2] = 0.0f;
@@ -207,6 +215,7 @@ bool SkinningPipeline::init(const VkRenderData& renderData,
   return true;
 }
 
-void SkinningPipeline::cleanup(const VkRenderData& renderData, VkPipeline pipeline) {
+void SkinningPipeline::cleanup(const VkRenderData& renderData,
+                               VkPipeline pipeline) {
   vkDestroyPipeline(renderData.rdVkbDevice.device, pipeline, nullptr);
 }

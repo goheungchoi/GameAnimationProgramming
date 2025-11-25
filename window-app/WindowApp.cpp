@@ -221,6 +221,9 @@ void WindowApp::handleMousePositionEvents(double xPos, double yPos) {
   e.hidden = (mode == GLFW_CURSOR_HIDDEN);
   e.disabled = (mode == GLFW_CURSOR_DISABLED);
   mInput->pushMousePositionEvent(e);
+
+	if (mRenderer && !e.hidden && !e.disabled) 
+		mRenderer->mMousePos = {xPos, yPos};
 }
 
 void WindowApp::moveForwardAction() {

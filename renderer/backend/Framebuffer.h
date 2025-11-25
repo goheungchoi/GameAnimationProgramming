@@ -9,5 +9,7 @@
 class Framebuffer {
  public:
   static bool init(VkRenderData* renderData);
+  static int getPixelValueFromSelectionImage(const VkRenderData& renderData,
+                                             glm::uvec2 pos);
   static void cleanup(VkRenderData* renderData);
 };
