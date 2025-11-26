@@ -47,7 +47,7 @@ void main() {
 
 	color = aColor * selected[gl_InstanceIndex + worldPosOffset].x;
 	/* draw the instance always on top when highlighted, helps to find it better */
-	if (selected[gl_InstanceIndex + worldPosOffset].x != 1.0f) {
+	if (0.99f < selected[gl_InstanceIndex + worldPosOffset].x) {
 		gl_Position.z -= 1.0f;
 	}
 

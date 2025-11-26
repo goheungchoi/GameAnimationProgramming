@@ -63,7 +63,8 @@ class VkRenderer {
 	void cleanup();
 
  public:
-	glm::uvec2 mMousePos {};
+	glm::uvec2 mMousePos{};
+	bool mMousePick{false};
 
  private:
 	bool bHideMouse{};

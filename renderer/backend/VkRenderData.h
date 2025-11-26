@@ -113,7 +113,7 @@ struct VkRenderData {
 	float rdUIDrawTime = 0.0f;
 
 	bool rdHighlightSelectedInstance = false;
-	float rdSelectedInstanceHighlightValue = 1.0f;
+	float rdUnselectedInstanceToneDownValue = 1.0f;
 
 	/* Vulkan specific stuff */
 	VmaAllocator rdAllocator = nullptr;
