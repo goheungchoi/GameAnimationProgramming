@@ -41,6 +41,8 @@ struct VkUploadMatrices {
 	glm::mat4 proj{};
 };
 
+enum class appMode : uint8_t { edit = 0, view };
+
 struct VkTextureData {
 	VkImage image = VK_NULL_HANDLE;
 	VkImageView view = VK_NULL_HANDLE;
@@ -112,8 +114,10 @@ struct VkRenderData {
 	float rdUIGenerateTime = 0.0f;
 	float rdUIDrawTime = 0.0f;
 
-	bool rdHighlightSelectedInstance = false;
+	bool rdHighlightSelectedInstance = true;
 	float rdUnselectedInstanceToneDownValue = 1.0f;
+
+	appMode rdApplicationMode = appMode::edit;
 
 	/* Vulkan specific stuff */
 	VmaAllocator rdAllocator = nullptr;

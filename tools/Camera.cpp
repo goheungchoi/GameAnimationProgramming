@@ -42,8 +42,11 @@ glm::vec3 Camera::getRotation() const {
 }
 
 glm::vec3 Camera::getTranslation() const {
-	return mWorldPosition;
-}
+	return mWorldPosition; }
+
+float Camera::getViewAzimuth() const { return mViewAzimuth; }
+
+float Camera::getViewElevation() const { return mViewElevation; }
 
 float Camera::getMoveSpeed() const {
 	return mMoveSpeed; }

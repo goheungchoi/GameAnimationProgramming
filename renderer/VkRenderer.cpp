@@ -146,6 +146,16 @@ bool VkRenderer::init(unsigned int width, unsigned int height) {
         centerInstance(instance);
       };
 
+  /* create an empty null model and an instance from it */
+  std::shared_ptr<AssimpModel> nullModel = std::make_shared<AssimpModel>();
+  mModelInstData.miModelList.emplace_back(nullModel);
+  std::shared_ptr<AssimpInstance> nullInstance =
+      std::make_shared<AssimpInstance>(nullModel);
+  mModelInstData.miAssimpInstancesPerModel[nullModel->getModelFileName()]
+      .emplace_back(nullInstance);
+  mModelInstData.miAssimpInstances.emplace_back(nullInstance);
+  assignInstanceIndices();
+
   /* signal graphics semaphore before doing anything else to be able to run
    * compute submit */
   VkSubmitInfo submitInfo{};
@@ -276,7 +286,9 @@ bool VkRenderer::draw() {
 
   /* save the selected instance for color highlight */
   std::shared_ptr<AssimpInstance> currentSelectedInstance = nullptr;
-  if (mRenderData.rdHighlightSelectedInstance) {
+  mRenderData.rdUnselectedInstanceToneDownValue = 1.0f;
+  if (mRenderData.rdHighlightSelectedInstance &&
+			mRenderData.rdApplicationMode == appMode::edit) {
     currentSelectedInstance =
         mModelInstData.miAssimpInstances.at(mModelInstData.miSelectedInstance);
     mRenderData.rdUnselectedInstanceToneDownValue = 0.1f;
@@ -289,9 +301,8 @@ bool VkRenderer::draw() {
   size_t animatedInstancesToStore = 0;
   for (const auto& [_, instances] : mModelInstData.miAssimpInstancesPerModel) {
     size_t numInstances = instances.size();
-    if (numInstances > 0) {
-      std::shared_ptr<AssimpModel> model = instances.front()->getModel();
-
+    std::shared_ptr<AssimpModel> model = instances.front()->getModel();
+    if (numInstances > 0 && model->getTriangleCount() > 0) {
       /* animated models */
       if (model->hasAnimations() && !model->getBoneList().empty()) {
         size_t numBones = model->getBoneList().size();
@@ -301,7 +312,7 @@ bool VkRenderer::draw() {
 
         for (unsigned int i = 0; i < numInstances; ++i) {
           /*const std::vector<glm::mat4>& instanceBoneMatrices =
-                                                                                                                                                                                                                                           instances.at(i)->getBoneMatrices();
+                          instances.at(i)->getBoneMatrices();
           mModelBoneMatrices.insert(mModelBoneMatrices.end(),
           instanceBoneMatrices.begin(), instanceBoneMatrices.end());*/
           const auto& nodeTransforms = instances.at(i)->getNodeTransformData();
@@ -607,14 +618,16 @@ bool VkRenderer::draw() {
   }
 
   /* imGui overlay */
-  mUIGenerateTimer.start();
-  mUserInterface.hideMouse(bHideMouse);
-  mUserInterface.createFrame(mRenderData, mModelInstData, mCamera.get());
-  mRenderData.rdUIGenerateTime += mUIGenerateTimer.stop();
+  if (mRenderData.rdApplicationMode == appMode::edit) {
+    mUIGenerateTimer.start();
+    mUserInterface.hideMouse(bHideMouse);
+    mUserInterface.createFrame(mRenderData, mModelInstData, mCamera.get());
+    mRenderData.rdUIGenerateTime += mUIGenerateTimer.stop();
 
-  mUIDrawTimer.start();
-  mUserInterface.render(mRenderData);
-  mRenderData.rdUIDrawTime = mUIDrawTimer.stop();
+    mUIDrawTimer.start();
+    mUserInterface.render(mRenderData);
+    mRenderData.rdUIDrawTime = mUIDrawTimer.stop();
+  }
 
   vkCmdEndRenderPass(mRenderData.rdCommandBuffer);
 
@@ -662,13 +675,16 @@ bool VkRenderer::draw() {
   vkQueueWaitIdle(mRenderData.rdGraphicsQueue);
 
   if (mMousePick) {
-    int selectedInstanceId =
-        Framebuffer::getPixelValueFromSelectionImage(mRenderData, mMousePos);
+    if (mRenderData.rdApplicationMode == appMode::edit) {
+      int selectedInstanceId =
+          Framebuffer::getPixelValueFromSelectionImage(mRenderData, mMousePos);
 
-    if (0 < selectedInstanceId) {
-      mModelInstData.miSelectedInstance = static_cast<int>(selectedInstanceId);
-    } else {
-      mModelInstData.miSelectedInstance = 0;
+      if (0 < selectedInstanceId) {
+        mModelInstData.miSelectedInstance =
+            static_cast<int>(selectedInstanceId);
+      } else {
+        mModelInstData.miSelectedInstance = 0;
+      }
     }
     mMousePick = false;
   }

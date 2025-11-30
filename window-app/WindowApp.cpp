@@ -33,38 +33,30 @@ bool WindowApp::init(unsigned int width, unsigned int height,
     Logger::log(1, "%s error: Could not create window\n", __FUNCTION__);
     return false;
   }
+  mTitle = title;
 
   /* Input settings */
   mInput = std::make_unique<InputManager>();
+  mInput->bindKey(Delegate<void()>::bind<&WindowApp::moveForwardAction>(this),
+                  GLFW_KEY_W, KeyActionType::Down);
+  mInput->bindKey(Delegate<void()>::bind<&WindowApp::moveBackwardAction>(this),
+                  GLFW_KEY_S, KeyActionType::Down);
+  mInput->bindKey(Delegate<void()>::bind<&WindowApp::moveRightAction>(this),
+                  GLFW_KEY_D, KeyActionType::Down);
+  mInput->bindKey(Delegate<void()>::bind<&WindowApp::moveLeftAction>(this),
+                  GLFW_KEY_A, KeyActionType::Down);
+  mInput->bindKey(Delegate<void()>::bind<&WindowApp::moveDownAction>(this),
+                  GLFW_KEY_Q, KeyActionType::Down);
+  mInput->bindKey(Delegate<void()>::bind<&WindowApp::moveUpAction>(this),
+                  GLFW_KEY_E, KeyActionType::Down);
   mInput->bindKey(
-      Delegate<void()>::bind<&WindowApp::moveForwardAction>(this),
-      GLFW_KEY_W, KeyActionType::Down);
-  mInput->bindKey(
-      Delegate<void()>::bind<&WindowApp::moveBackwardAction>(this),
-      GLFW_KEY_S, KeyActionType::Down);
-  mInput->bindKey(
-      Delegate<void()>::bind<&WindowApp::moveRightAction>(this),
-      GLFW_KEY_D, KeyActionType::Down);
-  mInput->bindKey(
-      Delegate<void()>::bind<&WindowApp::moveLeftAction>(this),
-      GLFW_KEY_A, KeyActionType::Down);
-  mInput->bindKey(
-      Delegate<void()>::bind<&WindowApp::moveDownAction>(this),
-      GLFW_KEY_Q, KeyActionType::Down);
-  mInput->bindKey(
-      Delegate<void()>::bind<&WindowApp::moveUpAction>(this),
-      GLFW_KEY_E, KeyActionType::Down);
-  mInput->bindKey(
-      Delegate<void()>::bind<&WindowApp::decreaseMoveSpeedAction>(
-          this),
+      Delegate<void()>::bind<&WindowApp::decreaseMoveSpeedAction>(this),
       GLFW_KEY_MINUS, KeyActionType::Pressed);
   mInput->bindKey(
-      Delegate<void()>::bind<&WindowApp::increaseMoveSpeedAction>(
-          this),
+      Delegate<void()>::bind<&WindowApp::increaseMoveSpeedAction>(this),
       GLFW_KEY_EQUAL, KeyActionType::Pressed);
   mInput->bindMouseMove(
-      Delegate<void(float, float)>::bind<&WindowApp::rotateCamera>(
-          this),
+      Delegate<void(float, float)>::bind<&WindowApp::rotateCamera>(this),
       MouseMode::Disabled);
 
   /* Set event callbacks */
@@ -150,15 +142,35 @@ void WindowApp::cleanup() {
   Logger::log(1, "%s: Terminating Window\n", __FUNCTION__);
 }
 
+void WindowApp::setModeInWindowTitle() {
+  if (mRenderer->GetAppMode() == appMode::edit) {
+    mWindowTitle = mTitle + " (Edit Mode)";
+  } else {
+    mWindowTitle = mTitle + " (View Mode)";
+  }
+
+  glfwSetWindowTitle(mWindow, mWindowTitle.c_str());
+}
+
 void WindowApp::handleResize(int width, int height) {
   if (mRenderer) mRenderer->setSize(width, height);
 }
 
 void WindowApp::handleKeyEvents(int key, int scancode, int action, int mods) {
   /* hide from application */
-  ImGuiIO& io = ImGui::GetIO();
-  if (io.WantCaptureKeyboard) {
-    return;
+  if (mRenderer->GetAppMode() == appMode::edit) {
+    ImGuiIO& io = ImGui::GetIO();
+    if (io.WantCaptureKeyboard) {
+      return;
+    }
+  }
+
+  /* toggle between edit and view mode by pressing F10 */
+  if (key == GLFW_KEY_F10 && action == GLFW_PRESS) {
+    appMode mode = mRenderer->GetAppMode() == appMode::edit ? appMode::view
+                                                            : appMode::edit;
+    mRenderer->SetAppMode(mode);
+    setModeInWindowTitle();
   }
 
   KeyEvent e{InputEventType_Keyboard};
@@ -204,9 +216,13 @@ void WindowApp::handleMouseButtonEvents(int button, int action, int mods) {
   }
   if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
     if (mRenderer) {
-			mRenderer->mMousePick = true;    
-		}
-	}
+      int mode = glfwGetInputMode(mWindow, GLFW_CURSOR);
+      bool hidden = (mode == GLFW_CURSOR_HIDDEN);
+      bool disabled = (mode == GLFW_CURSOR_DISABLED);
+
+      mRenderer->mMousePick = !hidden && !disabled;
+    }
+  }
 }
 
 void WindowApp::handleMousePositionEvents(double xPos, double yPos) {
@@ -227,64 +243,56 @@ void WindowApp::handleMousePositionEvents(double xPos, double yPos) {
   e.disabled = (mode == GLFW_CURSOR_DISABLED);
   mInput->pushMousePositionEvent(e);
 
-	if (mRenderer && !e.hidden && !e.disabled) 
-		mRenderer->mMousePos = {xPos, yPos};
+  if (mRenderer && !e.hidden && !e.disabled)
+    mRenderer->mMousePos = {xPos, yPos};
 }
 
 void WindowApp::moveForwardAction() {
   if (!mCamera) return;
-	
-	if (bMouseButtonRightPressed)
-		mCamera->addMoveForward(1);
+
+  if (bMouseButtonRightPressed) mCamera->addMoveForward(1);
 }
 
 void WindowApp::moveBackwardAction() {
   if (!mCamera) return;
 
-  if (bMouseButtonRightPressed) 
-		mCamera->addMoveForward(-1);
+  if (bMouseButtonRightPressed) mCamera->addMoveForward(-1);
 }
 
 void WindowApp::moveRightAction() {
   if (!mCamera) return;
 
-  if (bMouseButtonRightPressed) 
-		mCamera->addMoveRight(1);
+  if (bMouseButtonRightPressed) mCamera->addMoveRight(1);
 }
 
 void WindowApp::moveLeftAction() {
   if (!mCamera) return;
 
-  if (bMouseButtonRightPressed) 
-		mCamera->addMoveRight(-1);
+  if (bMouseButtonRightPressed) mCamera->addMoveRight(-1);
 }
 
 void WindowApp::moveUpAction() {
   if (!mCamera) return;
 
-  if (bMouseButtonRightPressed) 
-		mCamera->addMoveUp(1);
+  if (bMouseButtonRightPressed) mCamera->addMoveUp(1);
 }
 
 void WindowApp::moveDownAction() {
   if (!mCamera) return;
 
-  if (bMouseButtonRightPressed) 
-		mCamera->addMoveUp(-1);
+  if (bMouseButtonRightPressed) mCamera->addMoveUp(-1);
 }
 
 void WindowApp::increaseMoveSpeedAction() {
   if (!mCamera) return;
 
-  if (bMouseButtonRightPressed) 
-		mCamera->addMoveSpeed(10);
+  if (bMouseButtonRightPressed) mCamera->addMoveSpeed(10);
 }
 
 void WindowApp::decreaseMoveSpeedAction() {
   if (!mCamera) return;
 
-  if (bMouseButtonRightPressed) 
-		mCamera->addMoveSpeed(-10);
+  if (bMouseButtonRightPressed) mCamera->addMoveSpeed(-10);
 }
 
 void WindowApp::rotateCamera(float mouseDeltaX, float mouseDeltaY) {

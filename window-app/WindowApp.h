@@ -7,6 +7,7 @@
 #include <string>
 
 class WindowApp {
+  std::string mTitle{};
   GLFWwindow* mWindow{nullptr};
 
 	std::unique_ptr<class InputManager> mInput;
@@ -27,6 +28,9 @@ class WindowApp {
   void cleanup();
 
  private:
+	std::string mWindowTitle{};
+  void setModeInWindowTitle();
+
   void handleResize(int width, int height);
   void handleKeyEvents(int key, int scancode, int action, int mods);
   void handleMouseButtonEvents(int button, int action, int mods);
