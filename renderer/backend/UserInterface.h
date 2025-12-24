@@ -1,6 +1,8 @@
 /* Dear ImGui */
 #pragma once
 
+#include "AssimpInstance.h"
+#include "InstanceSettings.h"
 #include "ModelAndInstanceData.h"
 #include "VkRenderData.h"
 
@@ -53,4 +55,10 @@ class UserInterface {
   int mUiDrawOffset = 0;
 
   int mManyInstanceCreateNum = 1;
+  int mManyInstanceCloneNum = 1;
+
+	bool mPrevManipulationState = false;
+	bool mShouldSaveInstanceSettings = false;
+  InstanceSettings mSavedInstanceSettings{};
+  std::shared_ptr<AssimpInstance> mCurrentInstance;
 };

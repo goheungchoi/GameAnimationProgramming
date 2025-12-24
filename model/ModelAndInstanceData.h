@@ -11,6 +11,7 @@
 // forward declaration
 class AssimpModel;
 class AssimpInstance;
+class AssimpSettingsContainer;
 
 using modelCheckCallback = std::function<bool(const std::string&)>;
 using modelAddCallback = std::function<bool(const std::string&)>;
@@ -22,6 +23,9 @@ using instanceDeleteCallback = std::function<void(std::shared_ptr<AssimpInstance
 using instanceCloneCallback = std::function<void(std::shared_ptr<AssimpInstance>)>;
 using instanceCenterCallback = std::function<void(std::shared_ptr<AssimpInstance>)>;
 
+using undoRedoCallback = std::function<void(void)>;
+using ApplyCallback = std::function<void(const class InstanceSettings&)>;
+
 struct ModelAndInstanceData {
   std::vector<std::shared_ptr<AssimpModel>> miModelList{};
   int miSelectedModel = 0;
@@ -31,8 +35,11 @@ struct ModelAndInstanceData {
       miAssimpInstancesPerModel{};
   int miSelectedInstance = 0;
 
+	std::shared_ptr<AssimpSettingsContainer> miSettingsContainer{};
+
   /* we can only delete models in Vulkan outside the command buffers,
    * so let's use a separate pending list */
+
   std::unordered_set<std::shared_ptr<AssimpModel>> miPendingDeleteAssimpModels{};
 
   /* callbacks */
@@ -45,4 +52,8 @@ struct ModelAndInstanceData {
   instanceDeleteCallback miInstanceDeleteCallbackFunction;
   instanceCloneCallback miInstanceCloneCallbackFunction;
 	instanceCenterCallback miInstanceCenterCallbackFunction;
+
+	undoRedoCallback miUndoCallbackFunction;
+  undoRedoCallback miRedoCallbackFunction;
+	ApplyCallback miApplyCallbackFunction;
 };

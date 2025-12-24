@@ -11,6 +11,7 @@
 
 #include "AssimpInstance.h"
 #include "AssimpModel.h"
+#include "AssimpSettingsContainer.h"
 #include "CommandBuffer.h"
 #include "CommandPool.h"
 #include "ComputePipeline.h"
@@ -146,6 +147,13 @@ bool VkRenderer::init(unsigned int width, unsigned int height) {
         centerInstance(instance);
       };
 
+  mModelInstData.miUndoCallbackFunction = [this]() { undoLastOperation(); };
+  mModelInstData.miRedoCallbackFunction = [this]() { redoLastOperation(); };
+  mModelInstData.miApplyCallbackFunction =
+      [this](const InstanceSettings& savedInstanceSettings) {
+        applyLastOperation(savedInstanceSettings);
+      };
+
   /* create an empty null model and an instance from it */
   std::shared_ptr<AssimpModel> nullModel = std::make_shared<AssimpModel>();
   mModelInstData.miModelList.emplace_back(nullModel);
@@ -155,6 +163,10 @@ bool VkRenderer::init(unsigned int width, unsigned int height) {
       .emplace_back(nullInstance);
   mModelInstData.miAssimpInstances.emplace_back(nullInstance);
   assignInstanceIndices();
+
+  /* init the central settings container */
+  mModelInstData.miSettingsContainer =
+      std::make_shared<AssimpSettingsContainer>(nullInstance);
 
   /* signal graphics semaphore before doing anything else to be able to run
    * compute submit */
@@ -288,7 +300,7 @@ bool VkRenderer::draw() {
   std::shared_ptr<AssimpInstance> currentSelectedInstance = nullptr;
   mRenderData.rdUnselectedInstanceToneDownValue = 1.0f;
   if (mRenderData.rdHighlightSelectedInstance &&
-			mRenderData.rdApplicationMode == appMode::edit) {
+      mRenderData.rdApplicationMode == appMode::edit) {
     currentSelectedInstance =
         mModelInstData.miAssimpInstances.at(mModelInstData.miSelectedInstance);
     mRenderData.rdUnselectedInstanceToneDownValue = 0.1f;
@@ -1024,6 +1036,59 @@ void VkRenderer::cleanup() {
   vkb::destroy_instance(mRenderData.rdVkbInstance);
 
   Logger::log(1, "%s: Vulkan renderer destroyed\n", __FUNCTION__);
+}
+
+void VkRenderer::undoLastOperation() {
+  mModelInstData.miSettingsContainer->undo();
+  /* we need to update the index numbers in case instances were deleted,
+   * and the settings files still contain the old index number */
+  assignInstanceIndices();
+
+  std::shared_ptr<AssimpInstance> currentUndoInstance =
+      mModelInstData.miSettingsContainer->getCurrentInstance();
+  const auto instancePos = std::find_if(
+      mModelInstData.miAssimpInstances.begin(),
+      mModelInstData.miAssimpInstances.end(),
+      [currentUndoInstance](std::shared_ptr<AssimpInstance> instance) {
+        return currentUndoInstance == instance;
+      });
+  if (instancePos != mModelInstData.miAssimpInstances.end()) {
+    mModelInstData.miSelectedInstance =
+        (*instancePos)->getInstanceSettings().instanceIndexPos;
+  } else {
+    mModelInstData.miSelectedInstance = 0;
+  }
+}
+
+void VkRenderer::redoLastOperation() {
+  mModelInstData.miSettingsContainer->redo();
+  assignInstanceIndices();
+
+  std::shared_ptr<AssimpInstance> currentRedoInstance =
+      mModelInstData.miSettingsContainer->getCurrentInstance();
+  const auto instancePos = std::find_if(
+      mModelInstData.miAssimpInstances.begin(),
+      mModelInstData.miAssimpInstances.end(),
+      [currentRedoInstance](std::shared_ptr<AssimpInstance> instance) {
+        return currentRedoInstance == instance;
+      });
+  if (instancePos != mModelInstData.miAssimpInstances.end()) {
+    mModelInstData.miSelectedInstance =
+        (*instancePos)->getInstanceSettings().instanceIndexPos;
+  } else {
+    mModelInstData.miSelectedInstance = 0;
+  }
+}
+
+void VkRenderer::applyLastOperation(
+    const InstanceSettings& savedInstanceSettings) {
+  if (mModelInstData.miSelectedInstance > 0) {
+    std::shared_ptr<AssimpInstance> instance =
+        mModelInstData.miAssimpInstances.at(mModelInstData.miSelectedInstance);
+    InstanceSettings settings = instance->getInstanceSettings();
+    mModelInstData.miSettingsContainer->apply(instance, settings,
+                                              savedInstanceSettings);
+  }
 }
 
 bool VkRenderer::deviceInit() {
